@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}
+  home page
+{% endblock %}
+
+{% block main_content %}
+  <strong>Personal Blog</strong>
+  {% for article in pathlist %}
+    <div>
+      <a>{{ article.stem | capitalize }}</a>
+      <span>TESTDATA</span>
+    </div>
+  {% else %}
+      <p>There’s no any articles yet!</p>
+  {% endfor %}
+{% endblock %}
