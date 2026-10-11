@@ -6,10 +6,10 @@
 
 {% block main_content %}
   <strong>Personal Blog</strong>
-  {% for article in pathlist %}
+  {% for article in articles_data %}
     <div>
-      <a>{{ article.stem | capitalize }}</a>
-      <span>TESTDATA</span>
+      <a>{{ article.article_name | capitalize }}</a>
+      <span>{{ article.article_timestamp }}</span>
     </div>
   {% else %}
       <p>There’s no any articles yet!</p>
