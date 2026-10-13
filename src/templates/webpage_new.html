@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}
+  new page
+{% endblock %}
+
+{% block main_content %}
+  <strong>New Article</strong>
+  <form method="post">
+    <p>Article Title</p>
+    <input type="text" name="title" required>
+    <br>
+    <p>Publishing Date</p>
+    <input type="datetime-local" name="publishing_date" required>
+    <br>
+    <p>Content</p>
+    <textarea name="content" required></textarea>
+    <button type="button">Publish</button>
+  </form>
+{% endblock %}

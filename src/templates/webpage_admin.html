@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}
+  admin page
+{% endblock %}
+
+{% block main_content %}
+  <strong>Personal Blog</strong>
+  <a href="{{ url_for('newpage_get_handler') }}">+ Add</a>
+  {% for article in articles_data %}
+    <div>
+      <span>{{article.article_title}}</span>
+      <a href="#">Edit</a>
+      <span>Временный блок под кнопкв удаления</span>
+    </div>
+  {% else %}
+    <p>There’s no any articles yet</p>
+  {% endfor %}
+{% endblock %}

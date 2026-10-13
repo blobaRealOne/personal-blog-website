@@ -1,12 +1,25 @@
 import json
 from pathlib import Path
 from typing import cast
+from functools import wraps
+from datetime import datetime
 
-from flask import Flask, abort, redirect, render_template, url_for
+from flask import Flask, abort, redirect, render_template, url_for, request
 
 BASE_PATH = Path(__file__).resolve().parent
 ARTICLE_PATH = BASE_PATH / "articles"
 
+ADMIN_USER = "admin"
+ADMIN_PASSWORD = "admin"
+
+def admin_auth(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        auth = request.authorization
+        if auth is None or auth.username != ADMIN_USER or auth.password != ADMIN_PASSWORD:
+            return ("Authentication required", 401, {"WWW-Authenticate": 'Basic realm="Admin"'})
+        return view(*args, **kwargs)
+    return wrapped
 
 def json_data_parser(file_id=None):
     if file_id is not None:
@@ -63,3 +76,24 @@ def articlepage_get_handler(article_id: int):
     except FileNotFoundError:
         abort(404)
     return render_template("webpage_article.html", article=article_data)
+
+@app.get("/admin")
+@admin_auth
+def adminpage_get_handler():
+    articles_data = json_data_parser()
+    return render_template("webpage_admin.html", articles_data=articles_data)
+
+@app.get("/new")
+@admin_auth
+def newpage_get_handler():
+    return render_template("webpage_new.html")
+
+@app.post("/new")
+@admin_auth
+def newpage_get_handler():
+    # TODO
+    # Finish this function by parsing data fron /new route, translate
+    # dataformat into iso format, build final dict with all data, then
+    # find the max() articles json id and create new article with +1 id
+    # from the biggest finded article id
+    pass
