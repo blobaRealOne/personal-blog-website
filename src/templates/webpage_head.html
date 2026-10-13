@@ -8,7 +8,7 @@
   <strong>Personal Blog</strong>
   {% for article in articles_data %}
     <div>
-      <a>{{ article.article_name | capitalize }}</a>
+      <a href="{{ url_for('articlepage_get_handler', article_id=article.article_name) }}">{{ article.article_title | capitalize }}</a>
       <span>{{ article.article_timestamp }}</span>
     </div>
   {% else %}

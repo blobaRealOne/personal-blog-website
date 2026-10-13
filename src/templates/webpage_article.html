@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}
+  article page
+{% endblock %}
+
+{% block main_content %}
+  <strong>{{ article.title }}</strong>
+  <p>{{ article.timestamp }}</p>
+  <p>{{ article.content }}</p>
+{% endblock %}

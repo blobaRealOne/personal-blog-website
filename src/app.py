@@ -1,12 +1,14 @@
-from flask import Flask, render_template, redirect, url_for, abort
-from pathlib import Path
 import json
+from pathlib import Path
 from typing import cast
+
+from flask import Flask, abort, redirect, render_template, url_for
 
 BASE_PATH = Path(__file__).resolve().parent
 ARTICLE_PATH = BASE_PATH / "articles"
 
-def json_data_parser(file_id = None):
+
+def json_data_parser(file_id=None):
     if file_id is not None:
         article_path = ARTICLE_PATH / f"{file_id}.json"
         if not article_path.exists():
@@ -17,9 +19,27 @@ def json_data_parser(file_id = None):
     for article in ARTICLE_PATH.glob("*.json"):
         with article.open("r", encoding="utf-8") as f:
             data = cast(dict[str, str], json.load(f))
-        result.append({"article_name": data.get("title", ""), "article_timestamp": data.get("ctime", "")})
+        result.append(
+            {
+                "article_title": data.get("title", ""),
+                "article_timestamp": data.get("timestamp", ""),
+                "article_name": article.stem,
+            }
+        )
     return result
 
+
+def _renumber_articles() -> None:
+    articles = sorted(ARTICLE_PATH.glob("*.json"), key=lambda path: int(path.stem))
+    temporary_paths: list[Path] = []
+
+    for _, article_path in enumerate(articles, start=1):
+        temporary_path = article_path.with_suffix(".tmp")
+        _ = article_path.rename(temporary_path)
+        temporary_paths.append(temporary_path)
+
+    for index, temporary_path in enumerate(temporary_paths, start=1):
+        _ = temporary_path.rename(ARTICLE_PATH / f"{index}.json")
 
 
 app = Flask(__name__)
@@ -29,16 +49,17 @@ app = Flask(__name__)
 def mainpage_get_handler():
     return redirect(url_for("homepage_get_handler"))
 
+
 @app.get("/home")
 def homepage_get_handler() -> str:
     articles_data = json_data_parser()
-    return render_template("webpage_main.html", articles_data = articles_data)
+    return render_template("webpage_head.html", articles_data=articles_data)
+
 
 @app.get("/article/<int:article_id>")
 def articlepage_get_handler(article_id: int):
-    chosen_file = ARTICLE_PATH / f"{article_id}.json"
     try:
-        article_payload = json.loads(chosen_file.read_text(encoding="UTF-8"))
+        article_data = json_data_parser(article_id)
     except FileNotFoundError:
         abort(404)
-    return "<p>hello</p>"
+    return render_template("webpage_article.html", article=article_data)
