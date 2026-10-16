@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import cast
 from functools import wraps
 from datetime import datetime
-
 from flask import Flask, abort, redirect, render_template, url_for, request
 
 BASE_PATH = Path(__file__).resolve().parent
@@ -27,15 +26,21 @@ def json_data_parser(file_id=None):
         if not article_path.exists():
             raise FileNotFoundError
         with article_path.open("r", encoding="utf-8") as f:
-            return cast(dict[str, str], json.load(f))
+            json_data = cast(dict[str, str], json.load(f))
+            raw_iso_date = datetime.fromisoformat(json_data.get("timestamp", ""))
+            date = f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
+            json_data["timestamp"] = date
+            return json_data
     result = []
     for article in ARTICLE_PATH.glob("*.json"):
         with article.open("r", encoding="utf-8") as f:
             data = cast(dict[str, str], json.load(f))
+        raw_iso_date = datetime.fromisoformat(data.get("timestamp", ""))
+        date = f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
         result.append(
             {
                 "article_title": data.get("title", ""),
-                "article_timestamp": data.get("timestamp", ""),
+                "article_timestamp": date,
                 "article_name": article.stem,
             }
         )
@@ -43,6 +48,8 @@ def json_data_parser(file_id=None):
 
 
 def _renumber_articles() -> None:
+    # TODO
+    # later fix whatever this is into something normal and actually working
     articles = sorted(ARTICLE_PATH.glob("*.json"), key=lambda path: int(path.stem))
     temporary_paths: list[Path] = []
 
@@ -54,6 +61,15 @@ def _renumber_articles() -> None:
     for index, temporary_path in enumerate(temporary_paths, start=1):
         _ = temporary_path.rename(ARTICLE_PATH / f"{index}.json")
 
+
+def article_creator(title: str, content: str, timestamp: str) -> None:
+    _ = _renumber_articles()
+    payload = {"title": title, "content": content, "timestamp": timestamp}
+    articles_ids = (int(path.stem) for path in ARTICLE_PATH.glob("*.json"))
+    new_id = max(articles_ids, default=0) + 1
+    new_path = ARTICLE_PATH / f"{new_id}.json"
+    with new_path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
 
 app = Flask(__name__)
 
@@ -90,10 +106,14 @@ def newpage_get_handler():
 
 @app.post("/new")
 @admin_auth
-def newpage_get_handler():
-    # TODO
-    # Finish this function by parsing data fron /new route, translate
-    # dataformat into iso format, build final dict with all data, then
-    # find the max() articles json id and create new article with +1 id
-    # from the biggest finded article id
-    pass
+def newpage_post_handler():
+    article_title = request.form["title"]
+    article_publishing_date = request.form["publishing_date"]
+    article_content = request.form["content"]
+
+    create_timestamp = datetime.fromisoformat(article_publishing_date)
+    create_timestamp_iso = create_timestamp.isoformat()
+
+    _ = article_creator(article_title, article_content, create_timestamp_iso)
+
+    return redirect(url_for("adminpage_get_handler"))
