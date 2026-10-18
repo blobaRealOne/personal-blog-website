@@ -10,7 +10,7 @@
   {% for article in articles_data %}
     <div>
       <span>{{article.article_title}}</span>
-      <a href="#">Edit</a>
+      <a href="{{ url_for('editpage_get_handler', edit_article_id=article.article_name) }}">Edit</a>
       <span>Временный блок под кнопкв удаления</span>
     </div>
   {% else %}
