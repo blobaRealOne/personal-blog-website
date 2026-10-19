@@ -11,7 +11,9 @@
     <div>
       <span>{{article.article_title}}</span>
       <a href="{{ url_for('editpage_get_handler', edit_article_id=article.article_name) }}">Edit</a>
-      <span>Временный блок под кнопкв удаления</span>
+      <form method="post" action="{{ url_for('deletepage_post_handler', delete_id=article.article_name) }}">
+        <button type="submit">Delete</button>
+      </form>
     </div>
   {% else %}
     <p>There’s no any articles yet</p>

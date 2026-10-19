@@ -8,11 +8,13 @@ from flask import Flask, abort, redirect, render_template, request, url_for
 
 BASE_PATH = Path(__file__).resolve().parent
 ARTICLE_PATH = BASE_PATH / "articles"
+ARTICLE_PATH.mkdir(parents=True, exist_ok=True)
 
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin"
 
 
+# TODO Add anotations to this wraper
 def admin_auth(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -128,6 +130,16 @@ def articlepage_get_handler(article_id: int):
 def adminpage_get_handler():
     articles_data = cast(list[dict[str, str]], json_data_parser())
     return render_template("webpage_admin.html", articles_data=articles_data)
+
+
+@app.post("/delete/<int:delete_id>")
+@admin_auth
+def deletepage_post_handler(delete_id: int):
+    path = ARTICLE_PATH / f"{delete_id}.json"
+    if path.exists():
+        path.unlink()
+    _ = _renumber_articles()
+    return redirect(url_for("adminpage_get_handler"))
 
 
 @app.get("/new")
