@@ -5,17 +5,25 @@
 {% endblock %}
 
 {% block main_content %}
-  <strong>Personal Blog</strong>
-  <a href="{{ url_for('newpage_get_handler') }}">+ Add</a>
-  {% for article in articles_data %}
+  <header class="page-header admin-header">
     <div>
-      <span>{{article.article_title}}</span>
-      <a href="{{ url_for('editpage_get_handler', edit_article_id=article.article_name) }}">Edit</a>
-      <form method="post" action="{{ url_for('deletepage_post_handler', delete_id=article.article_name) }}">
-        <button type="submit">Delete</button>
-      </form>
+      <strong class="site-title">Personal Blog</strong>
     </div>
-  {% else %}
-    <p>There’s no any articles yet</p>
-  {% endfor %}
+    <a class="button button-primary" href="{{ url_for('newpage_get_handler') }}">+ Add</a>
+  </header>
+  <section class="article-list" aria-label="Manage articles">
+    {% for article in articles_data %}
+      <article class="article-list">
+        <h2 class="admin-article-title">{{article.article_title}}</h2>
+        <div class="article-actions">
+          <a class="button button-secondary" href="{{ url_for('editpage_get_handler', edit_article_id=article.article_name) }}">Edit</a>
+          <form class="inline-form" method="post" action="{{ url_for('deletepage_post_handler', delete_id=article.article_name) }}" onsubmit="return confirm('You sure you want to delete this article?')">
+            <button class="button button-danger" type="submit"  >Delete</button>
+          </form>
+        </div>
+      </article>
+    {% else %}
+      <p class="empty-state">There’s no any articles yet</p>
+    {% endfor %}
+  </section>
 {% endblock %}

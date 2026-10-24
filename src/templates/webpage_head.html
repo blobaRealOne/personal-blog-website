@@ -5,13 +5,27 @@
 {% endblock %}
 
 {% block main_content %}
-  <strong>Personal Blog</strong>
-  {% for article in articles_data %}
-    <div>
-      <a href="{{ url_for('articlepage_get_handler', article_id=article.article_name) }}">{{ article.article_title | capitalize }}</a>
-      <span>{{ article.article_timestamp }}</span>
-    </div>
-  {% else %}
-      <p>There’s no any articles yet!</p>
-  {% endfor %}
+  <header class="page-header">
+    <strong class="site-title">Personal Blog</strong>
+  </header>
+  <section class="article-list" aria-label="Articles">
+    {% for article in articles_data %}
+      <article class="article-card">
+        <div class="article-card-content">
+          <div class="article-card-heading">
+            <h2 class="article-card-title">
+              <a href="{{ url_for('articlepage_get_handler', article_id=article.article_name) }}">
+              {{ article.article_title | capitalize }}
+              </a>
+            </h2>
+            <time class="article-date">
+            {{ article.article_timestamp }}
+            </time>
+          </div>
+        </div>
+      </article>
+    {% else %}
+      <p class="empty-state">There’s no any articles yet!</p>
+    {% endfor %}
+  </section>
 {% endblock %}

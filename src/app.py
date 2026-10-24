@@ -165,7 +165,7 @@ def newpage_post_handler():
 
 @app.get("/edit/<int:edit_article_id>")
 @admin_auth
-def editpage_get_handler(edit_article_id: int):
+def editpage_get_handler(edit_article_id: int): #pyright: ignore[reportUnusedParameter]
     return render_template("webpage_edit.html")
 
 

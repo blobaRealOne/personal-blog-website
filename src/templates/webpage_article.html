@@ -5,7 +5,17 @@
 {% endblock %}
 
 {% block main_content %}
-  <strong>{{ article.title }}</strong>
-  <p>{{ article.timestamp }}</p>
-  <p>{{ article.content }}</p>
+  <article class="article-detail">
+    <header class="article-detail-header">
+      <h1 class="page-heading">{{ article.title }}</h1>
+      <p class="article-date">{{ article.timestamp }}</p>
+    </header>
+    <div class="article-body">{{ article.content }}</div>
+  </article>
+
+  <footer class="page-footer">
+    <a class="text-link" href="{{ url_for('homepage_get_handler') }}">
+    Back to home
+    </a>
+  </footer>
 {% endblock %}

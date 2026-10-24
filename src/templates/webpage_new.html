@@ -5,16 +5,29 @@
 {% endblock %}
 
 {% block main_content %}
-  <strong>New Article</strong>
-  <form method="post">
-    <p>Article Title</p>
-    <input type="text" name="title" required>
-    <br>
-    <p>Publishing Date</p>
-    <input type="datetime-local" name="publishing_date" required>
-    <br>
-    <p>Content</p>
-    <textarea name="content" required></textarea>
-    <button type="submit">Publish</button>
-  </form>
+  <section class="form-panel">
+    <header class="form-header">
+      <h1 class="page-heading">New Article</h1>
+    </header>
+    <form class="editor-form" method="post">
+      <div class="form-label">
+        <label for="article-title">Article Title</label>
+        <input id="article-title" type="text" name="title" required>
+      </div>
+
+      <div class="form-field">
+        <label for="publishing-date">Publishing Date</label>
+        <input id="publishing-date" type="datetime-local" name="publishing_date" required>
+      </div>
+
+      <div class="form-field">
+        <label for="article-content">Content</label>
+        <textarea id="article-content" name="content" rows="12" required></textarea>
+      </div>
+
+      <div class="form-action">
+        <button class="button button-primary" type="submit">Publish</button>
+      </div>
+    </form>
+  </section>
 {% endblock %}

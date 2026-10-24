@@ -5,16 +5,42 @@
 {% endblock %}
 
 {% block main_content %}
-  <strong>Update Article</strong>
-  <form method="post">
-    <p>Article Title</p>
-    <input type="text" name="title">
-    <br>
-    <p>Publishing Date</p>
-    <input type="datetime-local" name="publishing_date">
-    <br>
-    <p>Content</p>
-    <textarea name="content"></textarea>
-    <button type="submit">Update</button>
-  </form>
+  <section class="form-panel">
+    <header class="form-header">
+      <h1 class="page-heading">Update Article</h1>
+    </header>
+
+    <form class="editor-form" method="post">
+      <div class="form-field">
+        <label for="article-title">Article Title</label>
+        <input
+          id="article-title"
+          type="text"
+          name="title"
+        >
+      </div>
+
+      <div class="form-field">
+        <label for="publishing-date">Publishing Date</label>
+        <input
+          id="publishing-date"
+          type="datetime-local"
+          name="publishing_date"
+        >
+      </div>
+
+      <div class="form-field">
+        <label for="article-content">Content</label>
+        <textarea
+          id="article-content"
+          name="content"
+          rows="12"
+        ></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button class="button button-primary" type="submit">Update</button>
+      </div>
+    </form>
+  </section>
 {% endblock %}
