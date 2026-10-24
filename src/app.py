@@ -1,10 +1,14 @@
 import json
+from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import cast
+from typing import ParamSpec, cast
 
 from flask import Flask, abort, redirect, render_template, request, url_for
+from flask.typing import ResponseReturnValue
+
+P = ParamSpec("P")
 
 BASE_PATH = Path(__file__).resolve().parent
 ARTICLE_PATH = BASE_PATH / "articles"
@@ -14,10 +18,11 @@ ADMIN_USER = "admin"
 ADMIN_PASSWORD = "admin"
 
 
-# TODO Add anotations to this wraper
-def admin_auth(view):
+def admin_auth[**P](
+    view: Callable[P, ResponseReturnValue],
+) -> Callable[P, ResponseReturnValue]:
     @wraps(view)
-    def wrapped(*args, **kwargs):
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> ResponseReturnValue:
         auth = request.authorization
         if (
             auth is None
@@ -165,7 +170,7 @@ def newpage_post_handler():
 
 @app.get("/edit/<int:edit_article_id>")
 @admin_auth
-def editpage_get_handler(edit_article_id: int): #pyright: ignore[reportUnusedParameter]
+def editpage_get_handler(edit_article_id: int):  # pyright: ignore[reportUnusedParameter]
     return render_template("webpage_edit.html")
 
 
