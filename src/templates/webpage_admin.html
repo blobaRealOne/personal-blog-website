@@ -13,7 +13,7 @@
   </header>
   <section class="article-list" aria-label="Manage articles">
     {% for article in articles_data %}
-      <article class="article-list">
+      <article class="admin-article">
         <h2 class="admin-article-title">{{article.article_title}}</h2>
         <div class="article-actions">
           <a class="button button-secondary" href="{{ url_for('editpage_get_handler', edit_article_id=article.article_name) }}">Edit</a>
@@ -23,7 +23,7 @@
         </div>
       </article>
     {% else %}
-      <p class="empty-state">There’s no any articles yet</p>
+      <p class="empty-state">There are no articles yet!</p>
     {% endfor %}
   </section>
 {% endblock %}

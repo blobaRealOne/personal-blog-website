@@ -17,6 +17,8 @@
           id="article-title"
           type="text"
           name="title"
+          value="{{ article.title }}"
+          required
         >
       </div>
 
@@ -26,6 +28,8 @@
           id="publishing-date"
           type="datetime-local"
           name="publishing_date"
+          value="{{ article.timestamp }}"
+          required
         >
       </div>
 
@@ -35,7 +39,8 @@
           id="article-content"
           name="content"
           rows="12"
-        ></textarea>
+          required
+        >{{ article.content }}</textarea>
       </div>
 
       <div class="form-actions">

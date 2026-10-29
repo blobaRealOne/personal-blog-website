@@ -15,7 +15,7 @@
           <div class="article-card-heading">
             <h2 class="article-card-title">
               <a href="{{ url_for('articlepage_get_handler', article_id=article.article_name) }}">
-              {{ article.article_title | capitalize }}
+              {{ article.article_title }}
               </a>
             </h2>
             <time class="article-date">
@@ -25,7 +25,7 @@
         </div>
       </article>
     {% else %}
-      <p class="empty-state">There’s no any articles yet!</p>
+      <p class="empty-state">There are no articles yet!</p>
     {% endfor %}
   </section>
 {% endblock %}
