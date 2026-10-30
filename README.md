@@ -4,16 +4,20 @@ Simple self-hosted blog website with admin panel.
 
 Project idea based from [roadmap.sh](https://roadmap.sh/projects/personal-blog).
 
+> [!WARNING]
+> This probably should be obvious, but this project is not production-ready.
+
 ## Features
 
 - View published articles
 - CRUD operations through the admin panel
 - HTTP Basic Authentication for admin access
+- Stateless
 
 ## Tech Stack
 
-- Python (3.15+)
-- Flask (3.1.3+)
+- Python 3.15+
+- Flask 3.1.3+
 
 ## Installation
 
@@ -26,7 +30,7 @@ cd personal-blog-website
 
 Then install dependencies:
 
-### Using uv
+### Using uv:
 
 ```bash
 uv sync
@@ -64,13 +68,13 @@ This reads `pyproject.toml` and installs its dependencies.
 
 ## Usage
 
-**Using uv**
+**Using uv:**
 
 ```bash
 uv run flask --app src.app run
 ```
 
-**Using Python**
+**Using Python:**
 
 ```bash
 python -m flask --app src.app run
