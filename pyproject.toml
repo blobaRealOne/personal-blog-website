@@ -1,7 +1,7 @@
 [project]
 name = "personal-blog-website-project"
 version = "1.0.0"
-description = "Add your description here"
+description = "Personal.bloging website on Flask."
 readme = "README.md"
 requires-python = ">=3.15"
 dependencies = [
