@@ -80,9 +80,10 @@ uv run flask --app src.app run
 python -m flask --app src.app run
 ```
 
-Open [localhost:5000](http://localhost:5000) in your browser.
-To access the admin panel, visit [localhost:5000/admin](http://localhost:5000/admin)
-and enter your credentials. By default, both the username and password are admin.
+Open http://localhost:5000 in your browser.
+To access the admin panel, visit http://localhost:5000/admin
+and enter your credentials.
+By default, both the username and password are admin.
 
 ### Environment Variables
 
