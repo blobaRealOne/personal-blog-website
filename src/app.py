@@ -40,6 +40,16 @@ def admin_auth[**P](
     return wrapped
 
 
+def _format_date(date: str, raw_date: bool = False) -> str:
+    if not raw_date:
+        try:
+            raw_iso_date = datetime.fromisoformat(date)
+            date = f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
+        except ValueError, TypeError:
+            date = "NaN"
+    return date
+
+
 @overload
 def json_data_parser(file_id: int, raw_date: bool = False) -> dict[str, str]: ...
 
@@ -60,23 +70,14 @@ def json_data_parser(
             raise FileNotFoundError
         with article_path.open("r", encoding="utf-8") as f:
             json_data = cast(dict[str, str], json.load(f))
-        if not raw_date:
-            try:
-                raw_iso_date = datetime.fromisoformat(json_data.get("timestamp", ""))
-                date = f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
-            except ValueError, TypeError:
-                date = "Nan"
-            json_data["timestamp"] = date
+        date = _format_date(json_data.get("timestamp", ""), raw_date)
+        json_data["timestamp"] = date
         return json_data
     result: list[dict[str, str]] = []
     for article in sorted(ARTICLE_PATH.glob("*.json"), key=lambda path: int(path.stem)):
         with article.open("r", encoding="utf-8") as f:
             data = cast(dict[str, str], json.load(f))
-        try:
-            raw_iso_date = datetime.fromisoformat(data.get("timestamp", ""))
-            date = f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
-        except ValueError, TypeError:
-            date = "Nan"
+        date = _format_date(data.get("timestamp", ""), raw_date)
         result.append(
             {
                 "article_title": data.get("title", ""),
