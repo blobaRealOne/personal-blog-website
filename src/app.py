@@ -4,7 +4,8 @@ from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import ParamSpec, cast, overload
+from threading import Lock
+from typing import ParamSpec, overload
 
 from flask import Flask, abort, redirect, render_template, request, url_for
 from flask.typing import ResponseReturnValue
@@ -13,10 +14,11 @@ P = ParamSpec("P")
 
 BASE_PATH = Path(__file__).resolve().parent
 ARTICLE_PATH = BASE_PATH / "articles"
-ARTICLE_PATH.mkdir(parents=True, exist_ok=True)
 
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
+
+ARTICLE_LOCK = Lock()
 
 
 def admin_auth[**P](
@@ -50,6 +52,26 @@ def _format_date(date: str, raw_date: bool = False) -> str:
     return date
 
 
+def _read_article(path: Path) -> dict[str, str]:
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise TypeError(f"Invalid article structure: {path.name}")
+    required_fields = {"title", "content", "timestamp"}
+    if not required_fields.issubset(data):
+        raise ValueError(f"Missing article fields: {path.name}")
+    if not all(isinstance(data[key], str) for key in required_fields):
+        raise ValueError(f"Invalid article field types: {path.name}")
+    return data
+
+
+def _get_article_paths() -> list[Path]:
+    return sorted(
+        (path for path in ARTICLE_PATH.glob("*.json") if path.stem.isdecimal()),
+        key=lambda path: int(path.stem),
+    )
+
+
 @overload
 def json_data_parser(file_id: int, raw_date: bool = False) -> dict[str, str]: ...
 
@@ -66,21 +88,28 @@ def json_data_parser(
 ) -> dict[str, str] | list[dict[str, str]]:
     if file_id is not None:
         article_path = ARTICLE_PATH / f"{file_id}.json"
+
         if not article_path.exists():
             raise FileNotFoundError
-        with article_path.open("r", encoding="utf-8") as f:
-            json_data = cast(dict[str, str], json.load(f))
+
+        json_data = _read_article(article_path)
         date = _format_date(json_data.get("timestamp", ""), raw_date)
         json_data["timestamp"] = date
         return json_data
+
     result: list[dict[str, str]] = []
-    for article in sorted(ARTICLE_PATH.glob("*.json"), key=lambda path: int(path.stem)):
-        with article.open("r", encoding="utf-8") as f:
-            data = cast(dict[str, str], json.load(f))
-        date = _format_date(data.get("timestamp", ""), raw_date)
+
+    for article in _get_article_paths():
+        try:
+            data = _read_article(article)
+        except json.JSONDecodeError, ValueError, OSError:
+            # TODO
+            # Put logging.exception() here, and just add more logging generally
+            continue
+        date = _format_date(data["timestamp"], raw_date)
         result.append(
             {
-                "article_title": data.get("title", ""),
+                "article_title": data["title"],
                 "article_timestamp": date,
                 "article_name": article.stem,
             }
@@ -91,19 +120,34 @@ def json_data_parser(
 def article_creator(
     title: str, content: str, timestamp: str, edit_by_id: int | None = None
 ) -> None:
-    filename = edit_by_id
-    payload = {"title": title, "content": content, "timestamp": timestamp}
-    if filename is None:
-        articles_ids = (int(path.stem) for path in ARTICLE_PATH.glob("*.json"))
-        filename = max(articles_ids, default=0) + 1
-    new_path = ARTICLE_PATH / f"{filename}.json"
-    temp_path = new_path.with_suffix(".json.tmp")
-    with temp_path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-    _ = temp_path.replace(new_path)
+    with ARTICLE_LOCK:
+        filename = edit_by_id
+        if filename is None:
+            articles_ids = (
+                int(path.stem)
+                for path in ARTICLE_PATH.glob("*.json")
+                if path.stem.isdecimal()
+            )
+            filename = max(articles_ids, default=0) + 1
+        new_path = ARTICLE_PATH / f"{filename}.json"
+        temp_path = new_path.with_suffix(".json.tmp")
+        payload = {
+            "title": title,
+            "content": content,
+            "timestamp": timestamp,
+        }
+        with temp_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        _ = temp_path.replace(new_path)
 
 
-app = Flask(__name__)
+def create_app() -> Flask:
+    app = Flask(__name__)
+    ARTICLE_PATH.mkdir(parents=True, exist_ok=True)
+    return app
+
+
+app = create_app()
 
 
 @app.get("/")
@@ -137,9 +181,12 @@ def adminpage_get_handler():
 @admin_auth
 def deletepage_post_handler(delete_id: int):
     path = ARTICLE_PATH / f"{delete_id}.json"
-    if path.exists():
-        path.unlink()
-    return redirect(url_for("adminpage_get_handler"))
+    with ARTICLE_LOCK:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        return redirect(url_for("adminpage_get_handler"))
 
 
 @app.get("/new")
