@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}
-  home page
+  Home Page
 {% endblock %}
 
 {% block main_content %}
@@ -14,12 +14,12 @@
         <div class="article-card-content">
           <div class="article-card-heading">
             <h2 class="article-card-title">
-              <a href="{{ url_for('articlepage_get_handler', article_id=article.article_name) }}">
-              {{ article.article_title }}
+              <a href="{{ url_for('articlepage_get_handler', article_id=article.article_id) }}">
+              {{ article.title }}
               </a>
             </h2>
             <time class="article-date">
-            {{ article.article_timestamp }}
+            {{ article.timestamp }}
             </time>
           </div>
         </div>

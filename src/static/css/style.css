@@ -445,3 +445,150 @@ textarea:focus-visible {
   }
 }
 
+
+/* Article navigation */
+
+.article-navigation {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 24px 0 40px;
+}
+
+/* Comments section */
+
+.comments-section {
+  margin-top: 40px;
+}
+
+.comments-header,
+.comment-management-header {
+  margin-bottom: 20px;
+}
+
+.comments-title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.3px;
+}
+
+.comment-list {
+  display: grid;
+  gap: 12px;
+}
+
+.comment-card {
+  min-width: 0;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.comment-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-bottom: 10px;
+}
+
+.comment-author {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.comment-date {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.comment-content {
+  color: #303946;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* Comment management in article editor */
+
+.comment-management {
+  margin-top: 12px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.comment-management-header {
+  margin-bottom: 20px;
+}
+
+.comment-management-description {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.comment-edit-card {
+  display: grid;
+  gap: 0;
+}
+
+.comment-delete {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.comment-delete input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--danger);
+  cursor: pointer;
+}
+
+.comment-delete label {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Responsive comments */
+
+@media (max-width: 600px) {
+  .article-navigation {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 32px;
+  }
+
+  .comments-section {
+    margin-top: 32px;
+  }
+
+  .comment-card {
+    padding: 16px;
+  }
+
+  .comment-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .comment-management {
+    padding-top: 22px;
+  }
+}

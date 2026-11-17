@@ -13,6 +13,7 @@ Project idea based from [roadmap.sh](https://roadmap.sh/projects/personal-blog).
 - CRUD operations through the admin panel
 - HTTP Basic Authentication for admin access
 - Test coverage
+- Comment feature
 
 ## Tech Stack
 

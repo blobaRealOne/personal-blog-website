@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}
-  edit page
+  Edit Page
 {% endblock %}
 
 {% block main_content %}
@@ -47,5 +47,40 @@
         <button class="button button-primary" type="submit">Update</button>
       </div>
     </form>
+
+    <section class="comment-management">
+      <header class="comment-management-header">
+        <h2 class="comment-title">Manage Comments</h2>
+      </header>
+
+      <div class="comment-list">
+        {% for comment in article.comments %}
+          <article class="comment-card comment-edit-card">
+            <header class="comment-header">
+              <h3 class="comment-author">{{ comment.username }}</h3>
+              <time class="comment-date">{{ comment.date }}</time>
+            </header>
+
+            <div class="comment-content">{{ comment.content }}</div>
+
+            <form
+              class="comment-delete"
+              method="post"
+              action="{{ url_for(
+              'editpage_post_handler',
+              edit_article_id=edit_article_id,
+              deletion_comment_id=comment.comment_id,
+            ) }}"
+            >
+              <button class="button button-danger" type="submit">
+                Delete comment
+              </button>
+            </form>
+          </article>
+        {% else %}
+          <p class="empty-state">No comments yet!</p>
+        {% endfor %}
+      </div>
+    </section>
   </section>
 {% endblock %}
