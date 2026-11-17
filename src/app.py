@@ -74,14 +74,34 @@ def _format_date(date: str, raw_date: bool = False) -> str:
 def _read_article(path: Path) -> Article:
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
+
     if not isinstance(data, dict):
         raise TypeError(f"Invalid article structure: {path.name}")
-    required_fields = {"title", "content", "timestamp"}
-    # TODO Add "comments" block here and not break anything
+
+    required_fields = {"title", "content", "timestamp", "comments"}
+
     if not required_fields.issubset(data):
         raise ValueError(f"Missing article fields: {path.name}")
-    if not all(isinstance(data[key], str) for key in required_fields):
+
+    string_fields = {"title", "content", "timestamp"}
+
+    if not all(isinstance(data[key], str) for key in string_fields):
         raise ValueError(f"Invalid article field types: {path.name}")
+
+    if not isinstance(data["comments"], list):
+        raise TypeError(f"Invalid comments field: {path.name}")
+
+    comment_fields = {"comment_id", "username", "content", "date"}
+
+    for comment in data["comments"]:
+        if not isinstance(comment, dict):
+            raise TypeError(f"Invalid comment structure: {path.name}")
+
+        if not comment_fields.issubset(comment):
+            raise ValueError(f"Missing comment fields: {path.name}")
+
+        if not all(isinstance(comment[key], str) for key in comment_fields):
+            raise ValueError(f"Invalid comment field types: {path.name}")
     return data
 
 
