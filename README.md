@@ -91,7 +91,7 @@ By default, both the username and password are `admin`.
 
 ### Environment Variables
 
-The application supports two environment variables for configuring admin credentials:
+The application supports the following environment variables:
 
 - `ADMIN_USER` - admin username. Defaults to `admin`.
 - `ADMIN_PASSWORD` - admin password. Defaults to `admin`.
