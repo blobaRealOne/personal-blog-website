@@ -92,47 +92,149 @@ def _format_date(date: str) -> str:
 def _exceeds_max_length(value: str, limit: int) -> bool:
     return len(value) > limit
 
+def _validate_string(
+    value: object,
+    field: str,
+    filename: str,
+    *,
+    max_length: int | None = None,
+    allow_empty: bool = False,
+) -> str:
+    if not isinstance(value, str):
+        raise TypeError(
+            f"Invalid type for '{field}' in {filename}"
+        )
+
+    if not allow_empty and not value.strip():
+        raise ValueError(
+            f"Empty field '{field}' in {filename}"
+        )
+
+    if max_length is not None and len(value) > max_length:
+        raise ValueError(
+            f"Field '{field}' exceeds maximum length in {filename}"
+        )
+
+    return value
+
+def _validate_timestamp(value: str, field: str, filename: str) -> None:
+    try:
+        _ = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid timestamp '{field}' in {filename}"
+        ) from exc
+
+def _reject_duplicate_keys(pairs):
+    result = {}
+
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Duplicate JSON key: {key}")
+
+        result[key] = value
+
+    return result
+
 
 def _read_article(path: Path) -> Article:
     with path.open("r", encoding="utf-8") as f:
-        data = json.load(f)
+        data = json.load(f, object_pairs_hook=_reject_duplicate_keys)
+
+    filename = path.name
 
     if not isinstance(data, dict):
         raise TypeError(f"Invalid article structure: {path.name}")
 
-    required_fields = {"title", "content", "timestamp", "timestamp_raw", "comments"}
+    required_fields = {
+        "title",
+        "content",
+        "timestamp",
+        "timestamp_raw",
+        "comments"
+    }
 
     if not required_fields.issubset(data):
         raise ValueError(f"Missing article fields: {path.name}")
 
-    string_fields = {"title", "content", "timestamp", "timestamp_raw"}
+    if data.keys() != required_fields:
+        raise ValueError(f"Unexpected or missing article fields: {filename}")
 
-    try:
-        if not all(isinstance(data[key], str) for key in string_fields):
-            raise ValueError(f"Invalid article field types: {path.name}")
-    except KeyError:
-        raise KeyError(f"Invalid article field types: {path.name}")
+    _ = _validate_string(
+        data["title"], "title", filename,
+        max_length=MAX_TITLE_LENGTH,
+    )
 
-    if not isinstance(data["comments"], list):
+    _ = _validate_string(
+        data["content"], "content", filename,
+        max_length=MAX_CONTENT_LENGTH,
+    )
+
+    _ = _validate_string(data["timestamp"], "timestamp", filename)
+
+    timestamp_raw = _validate_string(
+        data["timestamp_raw"], "timestamp_raw", filename,
+    )
+    _ = _validate_timestamp(timestamp_raw, "timestamp_raw", filename)
+
+    # string_fields = {"title", "content", "timestamp", "timestamp_raw"}
+
+    comments = data["comments"]
+
+    if not isinstance(comments, list):
         raise TypeError(f"Invalid comments field: {path.name}")
 
-    comment_fields = {"comment_id", "username", "content", "timestamp", "timestamp_raw"}
+    comment_fields = {
+        "comment_id",
+        "username",
+        "content",
+        "timestamp",
+        "timestamp_raw"
+    }
 
-    for comment in data["comments"]:
+    comment_ids = set()
+
+    for comment in comments:
         if not isinstance(comment, dict):
             raise TypeError(f"Invalid comment structure: {path.name}")
 
         if not comment_fields.issubset(comment):
             raise ValueError(f"Missing comment fields: {path.name}")
 
-        try:
-            if not all(isinstance(comment[key], str) for key in comment_fields):
-                raise ValueError(f"Invalid comment field types: {path.name}")
-        except KeyError:
-            raise KeyError(f"Invalid comment field types: {path.name}")
-        comment_id = comment["comment_id"]
-        if not comment_id.isdecimal() or not comment_id.isascii():
-            raise ValueError(f"Invalid comment_id field type: {path.name}")
+        if comment.keys() != comment_fields:
+            raise ValueError(f"Unexpected or missing comment fields: {filename}")
+
+        comment_id = _validate_string(
+            comment["comment_id"], "comment_id", filename,
+        )
+
+        if not comment_id.isascii() or not comment_id.isdecimal():
+            raise ValueError(f"Invalid comment_id: {path.name}")
+        if comment_id in comment_ids:
+            raise ValueError(f"Duplicate comment_id: {filename}")
+
+        comment_ids.add(comment_id)
+
+        _ = _validate_string(
+            comment["username"], "username", filename,
+            max_length=MAX_USERNAME_LENGTH,
+        )
+
+        _ = _validate_string(
+            comment["content"], "comment content", filename,
+            max_length=MAX_COMMENT_LENGTH,
+        )
+
+        _ = _validate_string(
+            comment["timestamp"], "comment timestamp", filename
+        )
+
+        comment_timestamp_raw = _validate_string(
+            comment["timestamp_raw"], "comment timestamp_raw", filename
+        )
+        _ = _validate_timestamp(
+            comment_timestamp_raw, "comment timestamp_raw", filename
+        )
     return data
 
 
@@ -142,6 +244,8 @@ def _get_article_paths() -> list[Path]:
         key=lambda path: int(path.stem),
     )
 
+def _get_article_ids() -> set[int]:
+    return {int(path.stem) for path in _get_article_paths()}
 
 @overload
 def json_data_parser(file_id: int) -> Article: ...
@@ -218,15 +322,7 @@ def save_article(
 ) -> None:
     filename = edit_by_id
     if filename is None:
-        # TODO
-        # Somehow put there _get_article_paths() fucn, as
-        # they almost identical, but putting directly breaking it
-        articles_ids = (
-            int(path.stem)
-            for path in ARTICLE_PATH.glob("*.json")
-            if path.stem.isdecimal()
-        )
-
+        articles_ids = _get_article_ids()
         filename = max(articles_ids, default=0) + 1
 
     new_path = ARTICLE_PATH / f"{filename}.json"
@@ -335,6 +431,8 @@ def articlepage_get_handler(article_id: int):
 
 @app.get("/article/<int:article_id>/comment")
 def commentpage_get_handler(article_id: int):
+    if article_id not in _get_article_ids():
+        abort(404)
     return render_template("webpage_comment.html", article_id=article_id)
 
 
