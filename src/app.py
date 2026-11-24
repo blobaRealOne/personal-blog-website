@@ -74,7 +74,7 @@ def _format_date(date: str) -> str:
         raw_iso_date = datetime.fromisoformat(date)
         return f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
     except ValueError, TypeError:
-            return "NaN"
+        return "NaN"
 
 
 def _exceeds_max_length(value: str, limit: int) -> bool:
@@ -177,7 +177,7 @@ def json_data_parser(
     return result
 
 
-def article_creator(
+def save_article(
     title: str,
     content: str,
     timestamp_raw: str,
@@ -262,7 +262,9 @@ def commentpage_post_handler(article_id: int):
     if not comment_username or not comment_content:
         abort(400)
 
-    if (_exceeds_max_length(comment_username, MAX_USERNAME_LENGTH) or _exceeds_max_length(comment_content, MAX_COMMENT_LENGTH)):
+    if _exceeds_max_length(
+        comment_username, MAX_USERNAME_LENGTH
+    ) or _exceeds_max_length(comment_content, MAX_COMMENT_LENGTH):
         abort(400)
 
     comment_date_raw = datetime.now().isoformat()
@@ -290,7 +292,7 @@ def commentpage_post_handler(article_id: int):
 
     article["comments"].append(comment)
 
-    _ = article_creator(
+    _ = save_article(
         title=article["title"],
         content=article["content"],
         timestamp_raw=article["timestamp_raw"],
@@ -335,7 +337,9 @@ def newpage_post_handler():
     if not article_title or not article_publishing_date or not article_content:
         abort(400)
 
-    if (_exceeds_max_length(article_title, MAX_TITLE_LENGTH)) or (_exceeds_max_length(article_content, MAX_CONTENT_LENGTH)):
+    if (_exceeds_max_length(article_title, MAX_TITLE_LENGTH)) or (
+        _exceeds_max_length(article_content, MAX_CONTENT_LENGTH)
+    ):
         abort(400)
 
     try:
@@ -343,7 +347,7 @@ def newpage_post_handler():
     except ValueError:
         abort(400)
 
-    _ = article_creator(
+    _ = save_article(
         title=article_title,
         content=article_content,
         timestamp_raw=timestamp.isoformat(),
@@ -389,15 +393,16 @@ def editpage_post_handler(edit_article_id: int):
         article_edition_dict = {
             "title": request.form.get("title", "").strip(),
             "content": request.form.get("content", "").strip(),
-            "timestamp": request.form.get("publishing_date", "").strip(),
+            "timestamp_raw": request.form.get("publishing_date", "").strip(),
         }
 
         if any(not value for value in article_edition_dict.values()):
             abort(400)
 
-        if (_exceeds_max_length(article_edition_dict["title"], MAX_TITLE_LENGTH) or _exceeds_max_length(article_edition_dict["content"], MAX_CONTENT_LENGTH)):
+        if _exceeds_max_length(
+            article_edition_dict["title"], MAX_TITLE_LENGTH
+        ) or _exceeds_max_length(article_edition_dict["content"], MAX_CONTENT_LENGTH):
             abort(400)
-
 
         try:
             timestamp_raw = datetime.fromisoformat(
@@ -410,7 +415,7 @@ def editpage_post_handler(edit_article_id: int):
         article_dict["content"] = article_edition_dict["content"]
         article_dict["timestamp_raw"] = timestamp_raw
 
-    _ = article_creator(
+    _ = save_article(
         title=article_dict["title"],
         content=article_dict["content"],
         timestamp_raw=article_dict["timestamp_raw"],
