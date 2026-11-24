@@ -1,8 +1,10 @@
 import json
+import logging
 import os
 from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from threading import Lock
 from typing import TypedDict, overload
@@ -50,6 +52,26 @@ MAX_USERNAME_LENGTH = 40
 MAX_COMMENT_LENGTH = 3_000
 
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+file_handler = RotatingFileHandler(
+    BASE_PATH / "logfile.log",
+    maxBytes=1_000_000,
+    backupCount=3,
+    encoding="utf-8",
+)
+
+file_handler.setFormatter(
+    logging.Formatter(
+        fmt="%(asctime)s - [%(levelname)s] %(name)s -> %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+)
+
+logger.addHandler(file_handler)
+
+
 def admin_auth[**P](
     view: Callable[P, ResponseReturnValue],
 ) -> Callable[P, ResponseReturnValue]:
@@ -61,6 +83,11 @@ def admin_auth[**P](
             or auth.username != ADMIN_USER
             or auth.password != ADMIN_PASSWORD
         ):
+            logger.warning(
+                "Failed admin authentication attempt from %s",
+                request.remote_addr,
+            )
+
             return (
                 "Authentication required",
                 401,
@@ -152,12 +179,26 @@ def json_data_parser(
 
         try:
             json_data = _read_article(article_path)
-        except ValueError, TypeError, KeyError:
-            # TODO
-            # Add logging
-            raise FileNotFoundError
-        except OSError, json.JSONDecodeError:
-            raise RuntimeError
+        except json.JSONDecodeError as exc:
+            logger.exception(
+                "Invalid JSON in article file: %s",
+                article_path.name,
+            )
+            raise RuntimeError("Failed to parse article JSON") from exc
+
+        except (ValueError, TypeError, KeyError) as exc:
+            logger.exception(
+                "Invalid article structure in file: %s",
+                article_path.name,
+            )
+            raise FileNotFoundError(f"Invalid article: {file_id}") from exc
+
+        except OSError as exc:
+            logger.exception(
+                "Failed to read article file: %s",
+                article_path.name,
+            )
+            raise RuntimeError("Failed to read article") from exc
 
         return json_data
 
@@ -167,8 +208,11 @@ def json_data_parser(
         try:
             data = _read_article(article)
         except json.JSONDecodeError, ValueError, OSError, TypeError, KeyError:
-            # TODO
-            # Put logging.exception() here, and just add more logging generally
+            logger.warning(
+                "Skipping invalid or unreadable article file: %s",
+                article.name,
+                exc_info=True,
+            )
             continue
 
         result.append(
@@ -219,9 +263,25 @@ def save_article(
         "timestamp_raw": timestamp_raw,
         "comments": comments,
     }
-    with temp_path.open("w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-    _ = temp_path.replace(new_path)
+    try:
+        with temp_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        _ = temp_path.replace(new_path)
+    except OSError, TypeError, ValueError:
+        logger.exception(
+            "Failed to save article: %s",
+            new_path.name,
+        )
+        raise
+
+    action = "Updated" if edit_by_id is not None else "Created"
+
+    logger.info(
+        "%s article: id=%s, title=%r",
+        action,
+        filename,
+        title,
+    )
 
 
 def create_app() -> Flask:
@@ -311,6 +371,12 @@ def commentpage_post_handler(article_id: int):
             edit_by_id=article_id,
         )
 
+        logger.info(
+            "Added comment: article_id=%s, comment_id=%s",
+            article_id,
+            comment_id,
+        )
+
         return redirect(url_for("articlepage_get_handler", article_id=article_id))
 
 
@@ -329,7 +395,12 @@ def deletepage_post_handler(delete_id: int):
         try:
             path.unlink()
         except FileNotFoundError:
-            pass
+            logger.warning(
+                "Attempted to delete non-existent article: id=%s",
+                delete_id,
+            )
+        else:
+            logger.info("Deleted article: id=%s", delete_id)
         return redirect(url_for("adminpage_get_handler"))
 
 
@@ -438,5 +509,12 @@ def editpage_post_handler(edit_article_id: int):
             comments=article_dict["comments"],
             edit_by_id=edit_article_id,
         )
+
+        if comment_to_delete is not None:
+            logger.info(
+                "Deleted comment: article_id=%s, comment_id=%s",
+                edit_article_id,
+                comment_to_delete,
+            )
 
         return redirect(url_for("adminpage_get_handler"))
