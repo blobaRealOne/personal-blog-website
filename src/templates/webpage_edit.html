@@ -17,6 +17,7 @@
           id="article-title"
           type="text"
           name="title"
+          maxlength="120"
           value="{{ article.title }}"
           required
         >
@@ -28,7 +29,7 @@
           id="publishing-date"
           type="datetime-local"
           name="publishing_date"
-          value="{{ article.timestamp }}"
+          value="{{ article.timestamp_raw }}"
           required
         >
       </div>
@@ -39,12 +40,16 @@
           id="article-content"
           name="content"
           rows="12"
+          maxlength="50000"
           required
         >{{ article.content }}</textarea>
       </div>
 
       <div class="form-actions">
-        <button class="button button-primary" type="submit">Update</button>
+        <button
+          class="button button-primary"
+          type="submit"
+        >Update</button>
       </div>
     </form>
 
@@ -58,7 +63,10 @@
           <article class="comment-card comment-edit-card">
             <header class="comment-header">
               <h3 class="comment-author">{{ comment.username }}</h3>
-              <time class="comment-date">{{ comment.date }}</time>
+              <time
+                datetime="{{ comment.date_raw }}"
+                class="comment-date"
+              >{{ comment.date }}</time>
             </header>
 
             <div class="comment-content">{{ comment.content }}</div>
@@ -72,7 +80,11 @@
               deletion_comment_id=comment.comment_id,
             ) }}"
             >
-              <button class="button button-danger" type="submit">
+              <button
+                class="button button-danger"
+                type="submit"
+                onsubmit="return confirm('You sure you want to delete this comment?')"
+              >
                 Delete comment
               </button>
             </form>

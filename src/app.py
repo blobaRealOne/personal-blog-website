@@ -15,19 +15,22 @@ class Comment(TypedDict):
     comment_id: str
     username: str
     content: str
-    date: str
+    timestamp: str
+    timestamp_raw: str
 
 
 class Article(TypedDict):
     title: str
     content: str
     timestamp: str
+    timestamp_raw: str
     comments: list[Comment]
 
 
 class ArticlePreview(TypedDict):
     title: str
     timestamp: str
+    timestamp_raw: str
     article_id: str
 
 
@@ -38,6 +41,11 @@ ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 
 ARTICLE_LOCK = Lock()
+
+MAX_TITLE_LENGTH = 120
+MAX_CONTENT_LENGTH = 50_000
+MAX_USERNAME_LENGTH = 40
+MAX_COMMENT_LENGTH = 3_000
 
 
 def admin_auth[**P](
@@ -61,14 +69,16 @@ def admin_auth[**P](
     return wrapped
 
 
-def _format_date(date: str, raw_date: bool = False) -> str:
-    if not raw_date:
-        try:
-            raw_iso_date = datetime.fromisoformat(date)
-            date = f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
-        except ValueError, TypeError:
-            date = "NaN"
-    return date
+def _format_date(date: str) -> str:
+    try:
+        raw_iso_date = datetime.fromisoformat(date)
+        return f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
+    except ValueError, TypeError:
+            return "NaN"
+
+
+def _exceeds_max_length(value: str, limit: int) -> bool:
+    return len(value) > limit
 
 
 def _read_article(path: Path) -> Article:
@@ -78,20 +88,23 @@ def _read_article(path: Path) -> Article:
     if not isinstance(data, dict):
         raise TypeError(f"Invalid article structure: {path.name}")
 
-    required_fields = {"title", "content", "timestamp", "comments"}
+    required_fields = {"title", "content", "timestamp", "timestamp_raw", "comments"}
 
     if not required_fields.issubset(data):
         raise ValueError(f"Missing article fields: {path.name}")
 
-    string_fields = {"title", "content", "timestamp"}
+    string_fields = {"title", "content", "timestamp", "timestamp_raw"}
 
-    if not all(isinstance(data[key], str) for key in string_fields):
-        raise ValueError(f"Invalid article field types: {path.name}")
+    try:
+        if not all(isinstance(data[key], str) for key in string_fields):
+            raise ValueError(f"Invalid article field types: {path.name}")
+    except KeyError:
+        raise KeyError(f"Invalid article field types: {path.name}")
 
     if not isinstance(data["comments"], list):
         raise TypeError(f"Invalid comments field: {path.name}")
 
-    comment_fields = {"comment_id", "username", "content", "date"}
+    comment_fields = {"comment_id", "username", "content", "timestamp", "timestamp_raw"}
 
     for comment in data["comments"]:
         if not isinstance(comment, dict):
@@ -100,8 +113,11 @@ def _read_article(path: Path) -> Article:
         if not comment_fields.issubset(comment):
             raise ValueError(f"Missing comment fields: {path.name}")
 
-        if not all(isinstance(comment[key], str) for key in comment_fields):
-            raise ValueError(f"Invalid comment field types: {path.name}")
+        try:
+            if not all(isinstance(comment[key], str) for key in comment_fields):
+                raise ValueError(f"Invalid comment field types: {path.name}")
+        except KeyError:
+            raise KeyError(f"Invalid comment field types: {path.name}")
     return data
 
 
@@ -113,18 +129,15 @@ def _get_article_paths() -> list[Path]:
 
 
 @overload
-def json_data_parser(file_id: int, raw_date: bool = False) -> Article: ...
+def json_data_parser(file_id: int) -> Article: ...
 
 
 @overload
-def json_data_parser(
-    file_id: None = None, raw_date: bool = False
-) -> list[ArticlePreview]: ...
+def json_data_parser(file_id: None = None) -> list[ArticlePreview]: ...
 
 
 def json_data_parser(
     file_id: int | None = None,
-    raw_date: bool = False,
 ) -> Article | list[ArticlePreview]:
     if file_id is not None:
         article_path = ARTICLE_PATH / f"{file_id}.json"
@@ -134,12 +147,13 @@ def json_data_parser(
 
         try:
             json_data = _read_article(article_path)
-        except json.JSONDecodeError, ValueError, OSError, TypeError:
+        except ValueError, TypeError, KeyError:
             # TODO
             # Add logging
             raise FileNotFoundError
-        date = _format_date(json_data["timestamp"], raw_date)
-        json_data["timestamp"] = date
+        except OSError, json.JSONDecodeError:
+            raise RuntimeError
+
         return json_data
 
     result: list[ArticlePreview] = []
@@ -147,15 +161,16 @@ def json_data_parser(
     for article in _get_article_paths():
         try:
             data = _read_article(article)
-        except json.JSONDecodeError, ValueError, OSError, TypeError:
+        except json.JSONDecodeError, ValueError, OSError, TypeError, KeyError:
             # TODO
             # Put logging.exception() here, and just add more logging generally
             continue
-        date = _format_date(data["timestamp"], raw_date)
+
         result.append(
             {
                 "title": data["title"],
-                "timestamp": date,
+                "timestamp": data["timestamp"],
+                "timestamp_raw": data["timestamp_raw"],
                 "article_id": article.stem,
             }
         )
@@ -165,7 +180,7 @@ def json_data_parser(
 def article_creator(
     title: str,
     content: str,
-    timestamp: str,
+    timestamp_raw: str,
     comments: list[Comment] | None = None,
     edit_by_id: int | None = None,
 ) -> None:
@@ -188,10 +203,12 @@ def article_creator(
             else:
                 comments = []
         temp_path = new_path.with_suffix(".json.tmp")
+        timestamp = _format_date(timestamp_raw)
         payload: Article = {
             "title": title,
             "content": content,
             "timestamp": timestamp,
+            "timestamp_raw": timestamp_raw,
             "comments": comments,
         }
         with temp_path.open("w", encoding="utf-8") as f:
@@ -225,6 +242,8 @@ def articlepage_get_handler(article_id: int):
         article_data = json_data_parser(article_id)
     except FileNotFoundError:
         abort(404)
+    except RuntimeError:
+        abort(500)
     return render_template(
         "webpage_article.html", article=article_data, article_id=article_id
     )
@@ -243,9 +262,19 @@ def commentpage_post_handler(article_id: int):
     if not comment_username or not comment_content:
         abort(400)
 
-    comment_date = _format_date(datetime.now().isoformat())
+    if (_exceeds_max_length(comment_username, MAX_USERNAME_LENGTH) or _exceeds_max_length(comment_content, MAX_COMMENT_LENGTH)):
+        abort(400)
 
-    article = json_data_parser(article_id, raw_date=True)
+    comment_date_raw = datetime.now().isoformat()
+    comment_date = _format_date(comment_date_raw)
+
+    try:
+        article = json_data_parser(article_id)
+    except FileNotFoundError:
+        abort(400)
+    except RuntimeError:
+        abort(500)
+
     comments = article.get("comments", [])
     comment_id = (
         max((int(comment["comment_id"]) for comment in comments), default=0) + 1
@@ -255,14 +284,16 @@ def commentpage_post_handler(article_id: int):
         "comment_id": str(comment_id),
         "username": comment_username,
         "content": comment_content,
-        "date": comment_date,
+        "timestamp": comment_date,
+        "timestamp_raw": comment_date_raw,
     }
 
     article["comments"].append(comment)
+
     _ = article_creator(
         title=article["title"],
         content=article["content"],
-        timestamp=article["timestamp"],
+        timestamp_raw=article["timestamp_raw"],
         comments=article["comments"],
         edit_by_id=article_id,
     )
@@ -304,12 +335,19 @@ def newpage_post_handler():
     if not article_title or not article_publishing_date or not article_content:
         abort(400)
 
+    if (_exceeds_max_length(article_title, MAX_TITLE_LENGTH)) or (_exceeds_max_length(article_content, MAX_CONTENT_LENGTH)):
+        abort(400)
+
     try:
-        create_timestamp = datetime.fromisoformat(article_publishing_date)
+        timestamp = datetime.fromisoformat(article_publishing_date)
     except ValueError:
         abort(400)
 
-    _ = article_creator(article_title, article_content, create_timestamp.isoformat())
+    _ = article_creator(
+        title=article_title,
+        content=article_content,
+        timestamp_raw=timestamp.isoformat(),
+    )
 
     return redirect(url_for("adminpage_get_handler"))
 
@@ -318,9 +356,12 @@ def newpage_post_handler():
 @admin_auth
 def editpage_get_handler(edit_article_id: int):
     try:
-        article_data = json_data_parser(edit_article_id, raw_date=True)
+        article_data = json_data_parser(edit_article_id)
     except FileNotFoundError:
         abort(404)
+    except RuntimeError:
+        abort(500)
+
     return render_template(
         "webpage_edit.html", article=article_data, edit_article_id=edit_article_id
     )
@@ -330,9 +371,11 @@ def editpage_get_handler(edit_article_id: int):
 @admin_auth
 def editpage_post_handler(edit_article_id: int):
     try:
-        article_dict = json_data_parser(edit_article_id, raw_date=True)
+        article_dict = json_data_parser(edit_article_id)
     except FileNotFoundError:
         abort(404)
+    except RuntimeError:
+        abort(500)
 
     comment_to_delete = request.args.get("deletion_comment_id")
 
@@ -352,21 +395,25 @@ def editpage_post_handler(edit_article_id: int):
         if any(not value for value in article_edition_dict.values()):
             abort(400)
 
+        if (_exceeds_max_length(article_edition_dict["title"], MAX_TITLE_LENGTH) or _exceeds_max_length(article_edition_dict["content"], MAX_CONTENT_LENGTH)):
+            abort(400)
+
+
         try:
-            article_edition_dict["timestamp"] = datetime.fromisoformat(
-                article_edition_dict["timestamp"]
+            timestamp_raw = datetime.fromisoformat(
+                article_edition_dict["timestamp_raw"]
             ).isoformat()
         except ValueError:
             abort(400)
 
         article_dict["title"] = article_edition_dict["title"]
         article_dict["content"] = article_edition_dict["content"]
-        article_dict["timestamp"] = article_edition_dict["timestamp"]
+        article_dict["timestamp_raw"] = timestamp_raw
 
     _ = article_creator(
         title=article_dict["title"],
         content=article_dict["content"],
-        timestamp=article_dict["timestamp"],
+        timestamp_raw=article_dict["timestamp_raw"],
         comments=article_dict["comments"],
         edit_by_id=edit_article_id,
     )

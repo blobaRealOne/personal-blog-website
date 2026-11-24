@@ -9,16 +9,29 @@
     <div>
       <strong class="site-title">Personal Blog</strong>
     </div>
-    <a class="button button-primary" href="{{ url_for('newpage_get_handler') }}">+ Add</a>
+    <a
+      class="button button-primary"
+      href="{{ url_for('newpage_get_handler') }}"
+    >+ Add</a>
   </header>
   <section class="article-list" aria-label="Manage articles">
     {% for article in articles_data %}
       <article class="admin-article">
         <h2 class="admin-article-title">{{article.title}}</h2>
         <div class="article-actions">
-          <a class="button button-secondary" href="{{ url_for('editpage_get_handler', edit_article_id=article.article_id) }}">Edit</a>
-          <form class="inline-form" method="post" action="{{ url_for('deletepage_post_handler', delete_id=article.article_id) }}" onsubmit="return confirm('You sure you want to delete this article?')">
-            <button class="button button-danger" type="submit"  >Delete</button>
+          <a
+            class="button button-secondary"
+            href="{{ url_for('editpage_get_handler', edit_article_id=article.article_id) }}"
+          >Edit</a>
+          <form
+            class="inline-form"
+            method="post"
+            action="{{ url_for('deletepage_post_handler', delete_id=article.article_id) }}" onsubmit="return confirm('You sure you want to delete this article?')"
+          >
+            <button
+              class="button button-danger"
+              type="submit"
+            >Delete</button>
           </form>
         </div>
       </article>

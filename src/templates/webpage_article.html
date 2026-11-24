@@ -8,7 +8,10 @@
   <article class="article-detail">
     <header class="article-detail-header">
       <h1 class="page-heading">{{ article.title }}</h1>
-      <p class="article-date">{{ article.timestamp }}</p>
+      <time
+        datetime="{{ article.timestamp_raw }}"
+        class="article-date"
+      >{{ article.timestamp }}</time>
     </header>
     <div class="article-body">{{ article.content }}</div>
   </article>
@@ -39,7 +42,10 @@
         <article class="comment-card">
           <header class="comment-header">
             <h3 class="comment-author">{{ comment.username }}</h3>
-            <time class="comment-date">{{ comment.date }}</time>
+            <time
+              datetime="{{ comment.timestamp_raw }}"
+              class="comment-date"
+            >{{ comment.timestamp }}</time>
           </header>
 
           <div class="comment-content">{{ comment.content }}</div>

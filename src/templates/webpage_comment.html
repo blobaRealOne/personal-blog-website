@@ -9,25 +9,44 @@
     <header class="form-header">
       <h1 class="page-heading">Make Comment</h1>
     </header>
+
     <form method="post">
       <div class="form-field">
         <label for="comment-username">Username</label>
-        <input id="comment-username" type="text" name="comment_username" required>
+        <input
+          id="comment-username"
+          type="text"
+          name="comment_username"
+          maxlength="40"
+          required
+        >
       </div>
 
       <div class="form-field">
         <label for="comment-content">Comment Text</label>
-        <textarea id="comment-content" name="comment_content" rows="6" required></textarea>
+        <textarea
+          id="comment-content"
+          name="comment_content"
+          rows="6"
+          maxlength="3000"
+          required
+        ></textarea>
       </div>
 
       <div class="form-actions">
-        <button class="button button-primary" type="submit">Publish</button>
+        <button
+          class="button button-primary"
+          type="submit"
+        >Publish</button>
       </div>
     </form>
   </section>
 
   <footer class="page-footer">
-    <a class="text-link" href="{{ url_for('articlepage_get_handler', article_id=article_id)  }}">
+    <a
+      class="text-link"
+      href="{{ url_for('articlepage_get_handler', article_id=article_id)  }}"
+    >
     Back to Article
     </a>
   </footer>
