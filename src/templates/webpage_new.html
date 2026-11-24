@@ -11,6 +11,12 @@
     </header>
 
     <form class="editor-form" method="post">
+      <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+      >
+
       <div class="form-field">
         <label for="article-title">Article Title</label>
         <input

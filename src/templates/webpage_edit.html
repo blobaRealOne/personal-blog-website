@@ -11,6 +11,12 @@
     </header>
 
     <form class="editor-form" method="post">
+      <input
+        type="hidden"
+        name="csrf_token"
+        value="{{ csrf_token() }}"
+      >
+
       <div class="form-field">
         <label for="article-title">Article Title</label>
         <input
@@ -81,10 +87,15 @@
             ) }}"
               onsubmit="return confirm('You sure you want to delete this comment?')"
             >
+              <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token() }}"
+              >
+
               <button
                 class="button button-danger"
                 type="submit"
-                onsubmit="return confirm('You sure you want to delete this comment?')"
               >
                 Delete comment
               </button>

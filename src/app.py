@@ -9,6 +9,7 @@ from typing import TypedDict, overload
 
 from flask import Flask, abort, redirect, render_template, request, url_for
 from flask.typing import ResponseReturnValue
+from flask_wtf.csrf import CSRFProtect
 
 
 class Comment(TypedDict):
@@ -39,6 +40,7 @@ ARTICLE_PATH = BASE_PATH / "articles"
 
 ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
+SECRET_KEY = os.environ.get("SECRET_KEY", "secret_key")
 
 ARTICLE_LOCK = Lock()
 
@@ -118,6 +120,9 @@ def _read_article(path: Path) -> Article:
                 raise ValueError(f"Invalid comment field types: {path.name}")
         except KeyError:
             raise KeyError(f"Invalid comment field types: {path.name}")
+        comment_id = comment["comment_id"]
+        if not comment_id.isdecimal() or not comment_id.isascii():
+            raise ValueError(f"Invalid comment_id field type: {path.name}")
     return data
 
 
@@ -184,40 +189,45 @@ def save_article(
     comments: list[Comment] | None = None,
     edit_by_id: int | None = None,
 ) -> None:
-    with ARTICLE_LOCK:
-        filename = edit_by_id
-        if filename is None:
-            # TODO
-            # Somehow put there _get_article_paths() fucn, as
-            # they almost identical, but putting directly breaking it
-            articles_ids = (
-                int(path.stem)
-                for path in ARTICLE_PATH.glob("*.json")
-                if path.stem.isdecimal()
-            )
-            filename = max(articles_ids, default=0) + 1
-        new_path = ARTICLE_PATH / f"{filename}.json"
-        if comments is None:
-            if new_path.exists():
-                comments = json_data_parser(filename).get("comments", [])
-            else:
-                comments = []
-        temp_path = new_path.with_suffix(".json.tmp")
-        timestamp = _format_date(timestamp_raw)
-        payload: Article = {
-            "title": title,
-            "content": content,
-            "timestamp": timestamp,
-            "timestamp_raw": timestamp_raw,
-            "comments": comments,
-        }
-        with temp_path.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=2)
-        _ = temp_path.replace(new_path)
+    filename = edit_by_id
+    if filename is None:
+        # TODO
+        # Somehow put there _get_article_paths() fucn, as
+        # they almost identical, but putting directly breaking it
+        articles_ids = (
+            int(path.stem)
+            for path in ARTICLE_PATH.glob("*.json")
+            if path.stem.isdecimal()
+        )
+
+        filename = max(articles_ids, default=0) + 1
+
+    new_path = ARTICLE_PATH / f"{filename}.json"
+
+    if comments is None:
+        if new_path.exists():
+            comments = json_data_parser(filename).get("comments", [])
+        else:
+            comments = []
+
+    temp_path = new_path.with_suffix(".json.tmp")
+    timestamp = _format_date(timestamp_raw)
+    payload: Article = {
+        "title": title,
+        "content": content,
+        "timestamp": timestamp,
+        "timestamp_raw": timestamp_raw,
+        "comments": comments,
+    }
+    with temp_path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    _ = temp_path.replace(new_path)
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
+    app.config["SECRET_KEY"] = SECRET_KEY
+    _ = CSRFProtect(app)
     ARTICLE_PATH.mkdir(parents=True, exist_ok=True)
     return app
 
@@ -256,50 +266,52 @@ def commentpage_get_handler(article_id: int):
 
 @app.post("/article/<int:article_id>/comment")
 def commentpage_post_handler(article_id: int):
-    comment_username = request.form.get("comment_username", "").strip()
-    comment_content = request.form.get("comment_content", "").strip()
+    with ARTICLE_LOCK:
+        comment_username = request.form.get("comment_username", "").strip()
+        comment_content = request.form.get("comment_content", "").strip()
 
-    if not comment_username or not comment_content:
-        abort(400)
+        if not comment_username or not comment_content:
+            abort(400)
 
-    if _exceeds_max_length(
-        comment_username, MAX_USERNAME_LENGTH
-    ) or _exceeds_max_length(comment_content, MAX_COMMENT_LENGTH):
-        abort(400)
+        if _exceeds_max_length(
+            comment_username, MAX_USERNAME_LENGTH
+        ) or _exceeds_max_length(comment_content, MAX_COMMENT_LENGTH):
+            abort(400)
 
-    comment_date_raw = datetime.now().isoformat()
-    comment_date = _format_date(comment_date_raw)
+        comment_date_raw = datetime.now().isoformat()
+        comment_date = _format_date(comment_date_raw)
 
-    try:
-        article = json_data_parser(article_id)
-    except FileNotFoundError:
-        abort(400)
-    except RuntimeError:
-        abort(500)
+        try:
+            article = json_data_parser(article_id)
+        except FileNotFoundError:
+            abort(404)
+        except RuntimeError:
+            abort(500)
 
-    comments = article.get("comments", [])
-    comment_id = (
-        max((int(comment["comment_id"]) for comment in comments), default=0) + 1
-    )
+        comments = article.get("comments", [])
+        comment_id = (
+            max((int(comment["comment_id"]) for comment in comments), default=0) + 1
+        )
 
-    comment: Comment = {
-        "comment_id": str(comment_id),
-        "username": comment_username,
-        "content": comment_content,
-        "timestamp": comment_date,
-        "timestamp_raw": comment_date_raw,
-    }
+        comment: Comment = {
+            "comment_id": str(comment_id),
+            "username": comment_username,
+            "content": comment_content,
+            "timestamp": comment_date,
+            "timestamp_raw": comment_date_raw,
+        }
 
-    article["comments"].append(comment)
+        article["comments"].append(comment)
 
-    _ = save_article(
-        title=article["title"],
-        content=article["content"],
-        timestamp_raw=article["timestamp_raw"],
-        comments=article["comments"],
-        edit_by_id=article_id,
-    )
-    return redirect(url_for("articlepage_get_handler", article_id=article_id))
+        _ = save_article(
+            title=article["title"],
+            content=article["content"],
+            timestamp_raw=article["timestamp_raw"],
+            comments=article["comments"],
+            edit_by_id=article_id,
+        )
+
+        return redirect(url_for("articlepage_get_handler", article_id=article_id))
 
 
 @app.get("/admin")
@@ -312,8 +324,8 @@ def adminpage_get_handler():
 @app.post("/delete/<int:delete_id>")
 @admin_auth
 def deletepage_post_handler(delete_id: int):
-    path = ARTICLE_PATH / f"{delete_id}.json"
     with ARTICLE_LOCK:
+        path = ARTICLE_PATH / f"{delete_id}.json"
         try:
             path.unlink()
         except FileNotFoundError:
@@ -330,30 +342,31 @@ def newpage_get_handler():
 @app.post("/new")
 @admin_auth
 def newpage_post_handler():
-    article_title = request.form.get("title", "").strip()
-    article_publishing_date = request.form.get("publishing_date", "").strip()
-    article_content = request.form.get("content", "").strip()
+    with ARTICLE_LOCK:
+        article_title = request.form.get("title", "").strip()
+        article_publishing_date = request.form.get("publishing_date", "").strip()
+        article_content = request.form.get("content", "").strip()
 
-    if not article_title or not article_publishing_date or not article_content:
-        abort(400)
+        if not article_title or not article_publishing_date or not article_content:
+            abort(400)
 
-    if (_exceeds_max_length(article_title, MAX_TITLE_LENGTH)) or (
-        _exceeds_max_length(article_content, MAX_CONTENT_LENGTH)
-    ):
-        abort(400)
+        if (_exceeds_max_length(article_title, MAX_TITLE_LENGTH)) or (
+            _exceeds_max_length(article_content, MAX_CONTENT_LENGTH)
+        ):
+            abort(400)
 
-    try:
-        timestamp = datetime.fromisoformat(article_publishing_date)
-    except ValueError:
-        abort(400)
+        try:
+            timestamp = datetime.fromisoformat(article_publishing_date)
+        except ValueError:
+            abort(400)
 
-    _ = save_article(
-        title=article_title,
-        content=article_content,
-        timestamp_raw=timestamp.isoformat(),
-    )
+        _ = save_article(
+            title=article_title,
+            content=article_content,
+            timestamp_raw=timestamp.isoformat(),
+        )
 
-    return redirect(url_for("adminpage_get_handler"))
+        return redirect(url_for("adminpage_get_handler"))
 
 
 @app.get("/edit/<int:edit_article_id>")
@@ -374,53 +387,56 @@ def editpage_get_handler(edit_article_id: int):
 @app.post("/edit/<int:edit_article_id>")
 @admin_auth
 def editpage_post_handler(edit_article_id: int):
-    try:
-        article_dict = json_data_parser(edit_article_id)
-    except FileNotFoundError:
-        abort(404)
-    except RuntimeError:
-        abort(500)
-
-    comment_to_delete = request.args.get("deletion_comment_id")
-
-    if comment_to_delete is not None:
-        article_dict["comments"] = [
-            comment
-            for comment in article_dict["comments"]
-            if comment["comment_id"] != comment_to_delete
-        ]
-    else:
-        article_edition_dict = {
-            "title": request.form.get("title", "").strip(),
-            "content": request.form.get("content", "").strip(),
-            "timestamp_raw": request.form.get("publishing_date", "").strip(),
-        }
-
-        if any(not value for value in article_edition_dict.values()):
-            abort(400)
-
-        if _exceeds_max_length(
-            article_edition_dict["title"], MAX_TITLE_LENGTH
-        ) or _exceeds_max_length(article_edition_dict["content"], MAX_CONTENT_LENGTH):
-            abort(400)
-
+    with ARTICLE_LOCK:
         try:
-            timestamp_raw = datetime.fromisoformat(
-                article_edition_dict["timestamp_raw"]
-            ).isoformat()
-        except ValueError:
-            abort(400)
+            article_dict = json_data_parser(edit_article_id)
+        except FileNotFoundError:
+            abort(404)
+        except RuntimeError:
+            abort(500)
 
-        article_dict["title"] = article_edition_dict["title"]
-        article_dict["content"] = article_edition_dict["content"]
-        article_dict["timestamp_raw"] = timestamp_raw
+        comment_to_delete = request.args.get("deletion_comment_id")
 
-    _ = save_article(
-        title=article_dict["title"],
-        content=article_dict["content"],
-        timestamp_raw=article_dict["timestamp_raw"],
-        comments=article_dict["comments"],
-        edit_by_id=edit_article_id,
-    )
+        if comment_to_delete is not None:
+            article_dict["comments"] = [
+                comment
+                for comment in article_dict["comments"]
+                if comment["comment_id"] != comment_to_delete
+            ]
+        else:
+            article_edition_dict = {
+                "title": request.form.get("title", "").strip(),
+                "content": request.form.get("content", "").strip(),
+                "timestamp_raw": request.form.get("publishing_date", "").strip(),
+            }
 
-    return redirect(url_for("adminpage_get_handler"))
+            if any(not value for value in article_edition_dict.values()):
+                abort(400)
+
+            if _exceeds_max_length(
+                article_edition_dict["title"], MAX_TITLE_LENGTH
+            ) or _exceeds_max_length(
+                article_edition_dict["content"], MAX_CONTENT_LENGTH
+            ):
+                abort(400)
+
+            try:
+                timestamp_raw = datetime.fromisoformat(
+                    article_edition_dict["timestamp_raw"]
+                ).isoformat()
+            except ValueError:
+                abort(400)
+
+            article_dict["title"] = article_edition_dict["title"]
+            article_dict["content"] = article_edition_dict["content"]
+            article_dict["timestamp_raw"] = timestamp_raw
+
+        _ = save_article(
+            title=article_dict["title"],
+            content=article_dict["content"],
+            timestamp_raw=article_dict["timestamp_raw"],
+            comments=article_dict["comments"],
+            edit_by_id=edit_article_id,
+        )
+
+        return redirect(url_for("adminpage_get_handler"))
