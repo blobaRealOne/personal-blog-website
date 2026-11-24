@@ -52,24 +52,7 @@ MAX_USERNAME_LENGTH = 40
 MAX_COMMENT_LENGTH = 3_000
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-file_handler = RotatingFileHandler(
-    BASE_PATH / "logfile.log",
-    maxBytes=1_000_000,
-    backupCount=3,
-    encoding="utf-8",
-)
-
-file_handler.setFormatter(
-    logging.Formatter(
-        fmt="%(asctime)s - [%(levelname)s] %(name)s -> %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-)
-
-logger.addHandler(file_handler)
+logger = logging.getLogger("personal_blog")
 
 
 def admin_auth[**P](
@@ -284,9 +267,40 @@ def save_article(
     )
 
 
+def configure_file_logging() -> None:
+    log_path = (BASE_PATH / "logfile.log").resolve()
+
+    for handler in logger.handlers:
+        if (
+            isinstance(handler, RotatingFileHandler)
+            and Path(handler.baseFilename).resolve() == log_path
+        ):
+            return
+
+    file_handler = RotatingFileHandler(
+        log_path,
+        maxBytes=1_000_000,
+        backupCount=3,
+        encoding="utf-8",
+    )
+
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter(
+            fmt="%(asctime)s - [%(levelname)s] %(name)s -> %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+
+    logger.addHandler(file_handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = SECRET_KEY
+    _ = configure_file_logging()
     _ = CSRFProtect(app)
     ARTICLE_PATH.mkdir(parents=True, exist_ok=True)
     return app
