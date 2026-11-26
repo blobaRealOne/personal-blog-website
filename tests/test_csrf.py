@@ -31,14 +31,14 @@ class TestCSRF(IsolatedLoggingTestCase):
         }
 
         self.user_patcher = patch(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
-            "src.app.ADMIN_USER",
+            "src.config.ADMIN_USER",
             "test_admin",
         )
         _ = self.user_patcher.start()
         self.addCleanup(self.user_patcher.stop)
 
         self.password_patcher = patch(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
-            "src.app.ADMIN_PASSWORD",
+            "src.config.ADMIN_PASSWORD",
             "test_password",
         )
         _ = self.password_patcher.start()
@@ -75,7 +75,7 @@ class TestCSRF(IsolatedLoggingTestCase):
 
         self.assertEqual(response.status_code, 400)
 
-    @patch("src.app.save_article")
+    @patch("src.routes.save_article")
     def test_admin_post_with_valid_csrf_token(self, mock_save_article):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
         get_response = self.client.get(
             "/new",

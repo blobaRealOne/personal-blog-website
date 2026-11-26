@@ -21,7 +21,7 @@ class AdminTestCase(IsolatedLoggingTestCase):
         self.client = app.test_client()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
         self.credentials = patch.multiple(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
-            "src.app", ADMIN_USER="test_admin", ADMIN_PASSWORD="test_password"
+            "src.config", ADMIN_USER="test_admin", ADMIN_PASSWORD="test_password"
         )
         self.credentials.start()
         self.addCleanup(self.credentials.stop)
@@ -40,7 +40,7 @@ class AdminTestCase(IsolatedLoggingTestCase):
             response.headers,
         )
 
-    @patch("src.app.json_data_parser")
+    @patch("src.routes.json_data_parser")
     def test_admin_returns_200_with_valid_credentials(
         self,
         mock_parser,  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
@@ -58,7 +58,7 @@ class AdminTestCase(IsolatedLoggingTestCase):
             response.get_data(as_text=True),
         )
 
-    @patch("src.app.json_data_parser")
+    @patch("src.routes.json_data_parser")
     def test_admin_displays_articles(self, mock_parser):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
         mock_parser.return_value = [
             {

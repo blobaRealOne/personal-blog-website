@@ -19,7 +19,7 @@ class HomepageTestCase(IsolatedLoggingTestCase):
 
         self.client = app.test_client()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
-    @patch("src.app.json_data_parser")
+    @patch("src.routes.json_data_parser")
     def test_homepage_returns_200(self, mock_parser):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
         mock_parser.return_value = []
 
@@ -28,7 +28,7 @@ class HomepageTestCase(IsolatedLoggingTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"There are no articles yet!", response.data)  # pyright: ignore[reportAny]
 
-    @patch("src.app.json_data_parser")
+    @patch("src.routes.json_data_parser")
     def test_homepage_displays_articles(self, mock_parser):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
         mock_parser.return_value = [
             {

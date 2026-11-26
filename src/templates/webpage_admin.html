@@ -11,7 +11,7 @@
     </div>
     <a
       class="button button-primary"
-      href="{{ url_for('newpage_get_handler') }}"
+      href="{{ url_for('main.newpage_get_handler') }}"
     >+ Add</a>
   </header>
   <section class="article-list" aria-label="Manage articles">
@@ -22,7 +22,7 @@
           <a
             class="button button-secondary"
             href="{{ url_for(
-              'editpage_get_handler',
+              'main.editpage_get_handler',
               edit_article_id=article.article_id
             ) }}"
           >Edit</a>
@@ -30,7 +30,7 @@
             class="inline-form"
             method="post"
             action="{{ url_for(
-              'deletepage_post_handler',
+              'main.deletepage_post_handler',
               delete_id=article.article_id)
             }}"
             onsubmit="return confirm(

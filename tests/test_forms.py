@@ -19,15 +19,15 @@ class TestForms(IsolatedLoggingTestCase):
 
         self.article_path = Path(self.temp_dir.name)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
-        self.article_patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        self.article_patcher = patch("src.config.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         _ = self.article_patcher.start()
         self.addCleanup(self.article_patcher.stop)
 
-        self.user_patcher = patch("src.app.ADMIN_USER", "test_admin")  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        self.user_patcher = patch("src.config.ADMIN_USER", "test_admin")  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         _ = self.user_patcher.start()
         self.addCleanup(self.user_patcher.stop)
 
-        self.password_patcher = patch("src.app.ADMIN_PASSWORD", "test_password")  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        self.password_patcher = patch("src.config.ADMIN_PASSWORD", "test_password")  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         _ = self.password_patcher.start()
         self.addCleanup(self.password_patcher.stop)
 

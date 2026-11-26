@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from typing import override
 from unittest.mock import patch
 
-from src.app import (
+from src.json_parsers import (
     ArticleNotFoundError,
     InvalidArticleError,
     json_data_parser,
@@ -22,7 +22,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
 
         self.article_path = Path(self.temp_dir.name)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
-        self.patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        self.patcher = patch("src.config.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         _ = self.patcher.start()
         self.addCleanup(self.patcher.stop)
 

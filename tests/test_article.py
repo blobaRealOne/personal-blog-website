@@ -19,7 +19,7 @@ class TestArticlePage(IsolatedLoggingTestCase):
         self.article_path = Path(self.temp_dir.name)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
         self.article_patcher = patch(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
-            "src.app.ARTICLE_PATH",
+            "src.config.ARTICLE_PATH",
             self.article_path,
         )
         _ = self.article_patcher.start()

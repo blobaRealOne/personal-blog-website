@@ -19,7 +19,7 @@ class TestComments(IsolatedLoggingTestCase):
 
         self.article_path = Path(self.temp_dir.name)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
-        self.article_patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        self.article_patcher = patch("src.config.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         _ = self.article_patcher.start()
         self.addCleanup(self.article_patcher.stop)
 
