@@ -1,3 +1,10 @@
+"""Flask-based personal blog application.
+
+Provides article management, public commenting, administrator
+authentication, JSON-based article storage, and file logging.
+
+Article data is stored as individual JSON files in the articles directory.
+"""
 import json
 import logging
 import os
@@ -15,18 +22,30 @@ from flask_wtf.csrf import CSRFProtect
 
 
 class ArticleNotFoundError(Exception):
+    """Raised when the requested article does not exist."""
     pass
 
 
 class InvalidArticleError(Exception):
+    """Raised when an article contains invalid or malformed data."""
     pass
 
 
 class ArticleReadError(Exception):
+    """Raised when an article cannot be read due to an I/O error."""
     pass
 
 
 class Comment(TypedDict):
+    """Represents a comment stored in an article.
+
+    Attributes:
+        comment_id: Unique numeric identifier of the comment, stored as a string.
+        username: Name of the comment author.
+        content: Text content of the comment.
+        timestamp: Human-readable formatted comment publication date.
+        timestamp_raw: Original ISO 8601 timestamp.
+    """
     comment_id: str
     username: str
     content: str
@@ -35,6 +54,15 @@ class Comment(TypedDict):
 
 
 class Article(TypedDict):
+    """Represents a complete blog article.
+
+    Attributes:
+        title: Article title.
+        content: Main article content.
+        timestamp: Human-readable formatted publication date.
+        timestamp_raw: Original ISO 8601 publication timestamp.
+        comments: List of comments associated with the article.
+    """
     title: str
     content: str
     timestamp: str
@@ -43,6 +71,14 @@ class Article(TypedDict):
 
 
 class ArticlePreview(TypedDict):
+    """Represents a shortened article structure used in article listings.
+
+    Attributes:
+        title: Article title.
+        timestamp: Human-readable formatted publication date.
+        timestamp_raw: Original ISO 8601 publication timestamp.
+        article_id: Numeric article identifier, stored as a string.
+    """
     title: str
     timestamp: str
     timestamp_raw: str
@@ -70,6 +106,21 @@ logger = logging.getLogger("personal_blog")
 def admin_auth[**P](
     view: Callable[P, ResponseReturnValue],
 ) -> Callable[P, ResponseReturnValue]:
+    """Restricts access to a view to authenticated administrators.
+
+    Validates HTTP Basic Authentication credentials against the configured
+    administrator username and password.
+
+    Failed authentication attempts are logged and result in an HTTP 401
+    response with a Basic Authentication challenge.
+
+    Args:
+        view: Flask view function requiring administrator authentication.
+
+    Returns:
+        A wrapped view function that performs authentication before
+        executing the original view.
+    """
     @wraps(view)
     def wrapped(*args: P.args, **kwargs: P.kwargs) -> ResponseReturnValue:
         auth = request.authorization
@@ -94,6 +145,15 @@ def admin_auth[**P](
 
 
 def _format_date(date: str) -> str:
+    """Converts an ISO 8601 timestamp into a human-readable date.
+
+    Args:
+        date: ISO 8601 formatted date or datetime string.
+
+    Returns:
+        A formatted date in the 'Month day year' format.
+        Returns 'NaN' if the input cannot be parsed.
+    """
     try:
         raw_iso_date = datetime.fromisoformat(date)
         return f"{raw_iso_date:%B} {raw_iso_date.day} {raw_iso_date:%Y}"
@@ -102,6 +162,15 @@ def _format_date(date: str) -> str:
 
 
 def _exceeds_max_length(value: str, limit: int) -> bool:
+    """Checks whether a string exceeds the specified character limit.
+
+    Args:
+        value: String to check.
+        limit: Maximum permitted string length.
+
+    Returns:
+        True if the string is longer than the limit, otherwise False.
+    """
     return len(value) > limit
 
 
@@ -113,6 +182,26 @@ def _validate_string(
     max_length: int | None = None,
     allow_empty: bool = False,
 ) -> str:
+    """Validates a string field loaded from an article JSON file.
+
+    Checks the value type, optionally rejects empty or whitespace-only
+    strings, and enforces an optional maximum length.
+
+    Args:
+        value: Value to validate.
+        field: Name of the field being validated.
+        filename: Name of the source file, used in error messages.
+        max_length: Optional maximum permitted string length.
+        allow_empty: Whether empty or whitespace-only strings are allowed.
+
+    Returns:
+        The validated string.
+
+    Raises:
+        TypeError: If the value is not a string.
+        ValueError: If the value is empty when not allowed or exceeds
+            the specified maximum length.
+    """
     if not isinstance(value, str):
         raise TypeError(f"Invalid type for '{field}' in {filename}")
 
@@ -126,6 +215,17 @@ def _validate_string(
 
 
 def _validate_timestamp(value: str, field: str, filename: str) -> None:
+    """Validates an ISO 8601 timestamp.
+
+    Args:
+        value: Timestamp string to validate.
+        field: Name of the timestamp field.
+        filename: Name of the source file, used in error messages.
+
+    Raises:
+        ValueError: If the timestamp cannot be parsed as an ISO 8601 date
+            or datetime.
+    """
     try:
         _ = datetime.fromisoformat(value)
     except ValueError as exc:
@@ -133,6 +233,20 @@ def _validate_timestamp(value: str, field: str, filename: str) -> None:
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Builds a dictionary while rejecting duplicate JSON object keys.
+
+    Used as an object_pairs_hook for json.load() to prevent silently
+    overwriting previously encountered keys.
+
+    Args:
+        pairs: Key-value pairs extracted from a JSON object.
+
+    Returns:
+        A dictionary containing the validated key-value pairs.
+
+    Raises:
+        ValueError: If a duplicate key is encountered.
+    """
     result = {}
 
     for key, value in pairs:
@@ -149,6 +263,20 @@ def _validate_fields(
     entity: str,
     filename: str,
 ) -> None:
+    """Checks whether a dictionary contains exactly the required fields.
+
+    Both missing and unexpected keys are treated as invalid data.
+
+    Args:
+        data: Dictionary containing the fields to validate.
+        required_fields: Set of expected field names.
+        entity: Name of the entity being validated.
+        filename: Name of the source file, used in error messages.
+
+    Raises:
+        ValueError: If any required fields are missing or unexpected
+            fields are present.
+    """
     missing = required_fields - data.keys()
     unexpected = data.keys() - required_fields
 
@@ -160,6 +288,27 @@ def _validate_fields(
 
 
 def _read_article(path: Path) -> Article:
+    """Reads and validates an article from a JSON file.
+
+    Validates the article structure, required fields, string values,
+    timestamps, comments, and comment identifiers. Duplicate JSON keys
+    and duplicate comment identifiers are rejected.
+
+    Args:
+        path: Path to the article JSON file.
+
+    Returns:
+        A validated article dictionary.
+
+    Raises:
+        FileNotFoundError: If the article file does not exist.
+        OSError: If the file cannot be read.
+        json.JSONDecodeError: If the file contains invalid JSON.
+        TypeError: If the article or comment structure contains invalid
+            data types.
+        ValueError: If required fields, values, timestamps, or identifiers
+            are invalid.
+    """
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f, object_pairs_hook=_reject_duplicate_keys)
 
@@ -248,6 +397,21 @@ def _read_article(path: Path) -> Article:
     return data
 
 def _load_article(path: Path) -> Article:
+    """Loads an article and translates low-level errors into application errors.
+
+    Args:
+        path: Path to the article JSON file.
+
+    Returns:
+        A validated article dictionary.
+
+    Raises:
+        ArticleNotFoundError: If the article file does not exist.
+        InvalidArticleError: If the article contains malformed JSON
+            or invalid data.
+        ArticleReadError: If an operating system error prevents reading
+            the article.
+    """
     try:
         return _read_article(path)
 
@@ -262,6 +426,14 @@ def _load_article(path: Path) -> Article:
 
 
 def _get_article_paths() -> list[Path]:
+    """Returns paths to article JSON files with numeric filenames.
+
+    Article files are sorted by their numeric identifiers in ascending order.
+    Files with non-numeric names or unsupported extensions are ignored.
+
+    Returns:
+        A sorted list of paths to article JSON files.
+    """
     return sorted(
         (path for path in ARTICLE_PATH.glob("*.json") if path.stem.isdecimal()),
         key=lambda path: int(path.stem),
@@ -269,6 +441,11 @@ def _get_article_paths() -> list[Path]:
 
 
 def _get_article_ids() -> set[int]:
+    """Collects identifiers of all existing articles.
+
+    Returns:
+        A set of numeric article identifiers.
+    """
     return {int(path.stem) for path in _get_article_paths()}
 
 
@@ -283,6 +460,28 @@ def json_data_parser(file_id: None = None) -> list[ArticlePreview]: ...
 def json_data_parser(
     file_id: int | None = None,
 ) -> Article | list[ArticlePreview]:
+    """Loads and validates article data from the filesystem.
+
+    When an article identifier is provided, loads the corresponding
+    article and propagates application-level loading errors.
+
+    When no identifier is provided, generates a list of article previews.
+    Invalid or unreadable article files are logged and skipped rather
+    than preventing the entire listing from being generated.
+
+    Args:
+        file_id: Optional numeric identifier of the article to load.
+            If None, all available article previews are returned.
+
+    Returns:
+        A complete article dictionary when file_id is specified,
+            otherwise a list of article previews.
+
+    Raises:
+        ArticleNotFoundError: If the requested article does not exist.
+        InvalidArticleError: If the requested article contains invalid data.
+        ArticleReadError: If the requested article cannot be read.
+    """
     if file_id is not None:
         article_path = ARTICLE_PATH / f"{file_id}.json"
 
@@ -341,6 +540,30 @@ def save_article(
     comments: list[Comment] | None = None,
     edit_by_id: int | None = None,
 ) -> None:
+    """Creates a new article or updates an existing one.
+
+    Serializes article data into JSON and writes it to a temporary file
+    before replacing the destination file. Existing comments are preserved
+    when updating an article without explicitly providing a comment list.
+
+    New article identifiers are generated using the highest existing
+    numeric identifier plus one.
+
+    Args:
+        title: Article title.
+        content: Main article content.
+        timestamp_raw: Original ISO 8601 publication timestamp.
+        comments: Optional list of comments. If omitted, existing comments
+            are preserved when updating an article.
+        edit_by_id: Identifier of the article to update. If None, a new
+            article is created.
+
+    Raises:
+        OSError: If the article cannot be written or the destination
+            file cannot be replaced.
+        TypeError: If the data cannot be serialized into JSON.
+        ValueError: If the data contains values unsupported by JSON encoding.
+    """
     filename = edit_by_id
     if filename is None:
         articles_ids = _get_article_ids()
@@ -385,6 +608,17 @@ def save_article(
 
 
 def configure_file_logging() -> None:
+    """Configures rotating file logging for the application.
+
+    Creates a RotatingFileHandler that writes logs to logfile.log.
+    The log file is limited to 1 MB, with up to three backup files retained.
+
+    Avoids registering another handler if the same log file is already
+    configured.
+
+    The application logger is configured at INFO level and propagation
+    to parent loggers is disabled.
+    """
     log_path = (BASE_PATH / "logfile.log").resolve()
 
     for handler in logger.handlers:
@@ -415,6 +649,14 @@ def configure_file_logging() -> None:
 
 
 def create_app() -> Flask:
+    """Creates and configures the Flask application.
+
+    Configures the application secret key, maximum request size, CSRF
+    protection, file logging, and the directory used to store articles.
+
+    Returns:
+        A configured Flask application instance.
+    """
     app = Flask(__name__)
     app.config["SECRET_KEY"] = SECRET_KEY
     app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
@@ -429,17 +671,27 @@ app = create_app()
 
 @app.get("/")
 def mainpage_get_handler():
+    """Redirects visitors to the homepage."""
     return redirect(url_for("homepage_get_handler"))
 
 
 @app.get("/home")
 def homepage_get_handler() -> str:
+    """Renders the homepage with a list of available article previews."""
     articles_data = json_data_parser()
     return render_template("webpage_head.html", articles_data=articles_data)
 
 
 @app.get("/article/<int:article_id>")
 def articlepage_get_handler(article_id: int):
+    """Displays a complete article and its comments.
+
+    Returns HTTP 404 if the article does not exist and HTTP 500 if
+    its data is invalid or cannot be read.
+
+    Args:
+        article_id: Identifier of the requested article.
+    """
     try:
         article_data = json_data_parser(article_id)
 
@@ -454,6 +706,11 @@ def articlepage_get_handler(article_id: int):
 
 @app.get("/article/<int:article_id>/comment")
 def commentpage_get_handler(article_id: int):
+    """Displays the comment submission form for an existing article.
+
+    Args:
+        article_id: Identifier of the article receiving the comment.
+    """
     if article_id not in _get_article_ids():
         abort(404)
     return render_template("webpage_comment.html", article_id=article_id)
@@ -461,6 +718,17 @@ def commentpage_get_handler(article_id: int):
 
 @app.post("/article/<int:article_id>/comment")
 def commentpage_post_handler(article_id: int):
+    """Validates and saves a new comment submitted by a visitor.
+
+    Assigns a new comment identifier, preserves existing article data,
+    and redirects the visitor to the updated article.
+
+    The operation is protected by the article lock to prevent concurrent
+    modifications within the current process.
+
+    Args:
+        article_id: Identifier of the article receiving the comment.
+    """
     with ARTICLE_LOCK:
         comment_username = request.form.get("comment_username", "").strip()
         comment_content = request.form.get("comment_content", "").strip()
@@ -518,6 +786,10 @@ def commentpage_post_handler(article_id: int):
 @app.get("/admin")
 @admin_auth
 def adminpage_get_handler():
+    """Displays the administrator dashboard.
+
+    Requires successful HTTP Basic Authentication.
+    """
     articles_data = json_data_parser()
     return render_template("webpage_admin.html", articles_data=articles_data)
 
@@ -525,6 +797,14 @@ def adminpage_get_handler():
 @app.post("/delete/<int:delete_id>")
 @admin_auth
 def deletepage_post_handler(delete_id: int):
+    """Deletes an article.
+
+    Requires administrator authentication and executes the deletion
+    while holding the article lock.
+
+    Args:
+        delete_id: Identifier of the article to delete.
+    """
     with ARTICLE_LOCK:
         path = ARTICLE_PATH / f"{delete_id}.json"
         try:
@@ -542,12 +822,23 @@ def deletepage_post_handler(delete_id: int):
 @app.get("/new")
 @admin_auth
 def newpage_get_handler():
+    """Displays the form for creating a new article.
+
+    Requires administrator authentication.
+    """
     return render_template("webpage_new.html")
 
 
 @app.post("/new")
 @admin_auth
 def newpage_post_handler():
+    """Validates and creates a new article.
+
+    Validates the submitted title, publication date, and content before
+    saving the article and redirecting to the administrator dashboard.
+
+    Requires administrator authentication.
+    """
     with ARTICLE_LOCK:
         article_title = request.form.get("title", "").strip()
         article_publishing_date = request.form.get("publishing_date", "").strip()
@@ -578,6 +869,13 @@ def newpage_post_handler():
 @app.get("/edit/<int:edit_article_id>")
 @admin_auth
 def editpage_get_handler(edit_article_id: int):
+    """Displays the editing form for an existing article.
+
+    Requires administrator authentication.
+
+    Args:
+        edit_article_id: Identifier of the article to edit.
+    """
     try:
         article_data = json_data_parser(edit_article_id)
     except ArticleNotFoundError:
@@ -593,6 +891,19 @@ def editpage_get_handler(edit_article_id: int):
 @app.post("/edit/<int:edit_article_id>")
 @admin_auth
 def editpage_post_handler(edit_article_id: int):
+    """Updates an article or removes one of its comments.
+
+    When a comment deletion identifier is supplied, removes the matching
+    comment while preserving the rest of the article.
+
+    Otherwise, validates and updates the article title, content, and
+    publication date.
+
+    Requires administrator authentication.
+
+    Args:
+        edit_article_id: Identifier of the article to modify.
+    """
     with ARTICLE_LOCK:
         try:
             article_dict = json_data_parser(edit_article_id)
