@@ -92,6 +92,7 @@ def _format_date(date: str) -> str:
 def _exceeds_max_length(value: str, limit: int) -> bool:
     return len(value) > limit
 
+
 def _validate_string(
     value: object,
     field: str,
@@ -101,29 +102,23 @@ def _validate_string(
     allow_empty: bool = False,
 ) -> str:
     if not isinstance(value, str):
-        raise TypeError(
-            f"Invalid type for '{field}' in {filename}"
-        )
+        raise TypeError(f"Invalid type for '{field}' in {filename}")
 
     if not allow_empty and not value.strip():
-        raise ValueError(
-            f"Empty field '{field}' in {filename}"
-        )
+        raise ValueError(f"Empty field '{field}' in {filename}")
 
     if max_length is not None and len(value) > max_length:
-        raise ValueError(
-            f"Field '{field}' exceeds maximum length in {filename}"
-        )
+        raise ValueError(f"Field '{field}' exceeds maximum length in {filename}")
 
     return value
+
 
 def _validate_timestamp(value: str, field: str, filename: str) -> None:
     try:
         _ = datetime.fromisoformat(value)
     except ValueError as exc:
-        raise ValueError(
-            f"Invalid timestamp '{field}' in {filename}"
-        ) from exc
+        raise ValueError(f"Invalid timestamp '{field}' in {filename}") from exc
+
 
 def _reject_duplicate_keys(pairs):
     result = {}
@@ -146,13 +141,7 @@ def _read_article(path: Path) -> Article:
     if not isinstance(data, dict):
         raise TypeError(f"Invalid article structure: {path.name}")
 
-    required_fields = {
-        "title",
-        "content",
-        "timestamp",
-        "timestamp_raw",
-        "comments"
-    }
+    required_fields = {"title", "content", "timestamp", "timestamp_raw", "comments"}
 
     if not required_fields.issubset(data):
         raise ValueError(f"Missing article fields: {path.name}")
@@ -161,19 +150,25 @@ def _read_article(path: Path) -> Article:
         raise ValueError(f"Unexpected or missing article fields: {filename}")
 
     _ = _validate_string(
-        data["title"], "title", filename,
+        data["title"],
+        "title",
+        filename,
         max_length=MAX_TITLE_LENGTH,
     )
 
     _ = _validate_string(
-        data["content"], "content", filename,
+        data["content"],
+        "content",
+        filename,
         max_length=MAX_CONTENT_LENGTH,
     )
 
     _ = _validate_string(data["timestamp"], "timestamp", filename)
 
     timestamp_raw = _validate_string(
-        data["timestamp_raw"], "timestamp_raw", filename,
+        data["timestamp_raw"],
+        "timestamp_raw",
+        filename,
     )
     _ = _validate_timestamp(timestamp_raw, "timestamp_raw", filename)
 
@@ -184,13 +179,7 @@ def _read_article(path: Path) -> Article:
     if not isinstance(comments, list):
         raise TypeError(f"Invalid comments field: {path.name}")
 
-    comment_fields = {
-        "comment_id",
-        "username",
-        "content",
-        "timestamp",
-        "timestamp_raw"
-    }
+    comment_fields = {"comment_id", "username", "content", "timestamp", "timestamp_raw"}
 
     comment_ids = set()
 
@@ -205,7 +194,9 @@ def _read_article(path: Path) -> Article:
             raise ValueError(f"Unexpected or missing comment fields: {filename}")
 
         comment_id = _validate_string(
-            comment["comment_id"], "comment_id", filename,
+            comment["comment_id"],
+            "comment_id",
+            filename,
         )
 
         if not comment_id.isascii() or not comment_id.isdecimal():
@@ -216,18 +207,20 @@ def _read_article(path: Path) -> Article:
         comment_ids.add(comment_id)
 
         _ = _validate_string(
-            comment["username"], "username", filename,
+            comment["username"],
+            "username",
+            filename,
             max_length=MAX_USERNAME_LENGTH,
         )
 
         _ = _validate_string(
-            comment["content"], "comment content", filename,
+            comment["content"],
+            "comment content",
+            filename,
             max_length=MAX_COMMENT_LENGTH,
         )
 
-        _ = _validate_string(
-            comment["timestamp"], "comment timestamp", filename
-        )
+        _ = _validate_string(comment["timestamp"], "comment timestamp", filename)
 
         comment_timestamp_raw = _validate_string(
             comment["timestamp_raw"], "comment timestamp_raw", filename
@@ -244,8 +237,10 @@ def _get_article_paths() -> list[Path]:
         key=lambda path: int(path.stem),
     )
 
+
 def _get_article_ids() -> set[int]:
     return {int(path.stem) for path in _get_article_paths()}
+
 
 @overload
 def json_data_parser(file_id: int) -> Article: ...

@@ -54,9 +54,10 @@ class AdminTestCase(unittest.TestCase):
     def test_admin_displays_articles(self, mock_parser):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
         mock_parser.return_value = [
             {
-                "article_title": "Admin Test Article",
-                "article_timestamp": "November 9 2026",
-                "article_name": "1",
+                "title": "Admin Test Article",
+                "timestamp": "January 15 2025",
+                "timestamp_raw": "2025-01-15T12:30",
+                "article_id": "1",
             }
         ]
 

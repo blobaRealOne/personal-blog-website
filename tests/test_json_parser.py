@@ -20,10 +20,12 @@ class TestJsonDataParser(unittest.TestCase):
         self.addCleanup(self.temp_dir.cleanup)
 
     def _create_article(self, article_id: int, title: str):
-        article = {
+        article = {  # pyright: ignore[reportUnknownVariableType]
             "title": title,
             "content": f"Content of {title}",
-            "timestamp": "2025-01-15T12:30",
+            "timestamp": "January 15 2025",
+            "timestamp_raw": "2025-01-15T12:30",
+            "comments": [],
         }
 
         path = self.article_path / f"{article_id}.json"
@@ -39,6 +41,7 @@ class TestJsonDataParser(unittest.TestCase):
         self.assertEqual(result["title"], "First article")
         self.assertEqual(result["content"], "Content of First article")
         self.assertEqual(result["timestamp"], "January 15 2025")
+        self.assertEqual(result["timestamp_raw"], "2025-01-15T12:30")
 
     def test_parse_all_articles(self):
         self._create_article(2, "Second article")
@@ -47,15 +50,8 @@ class TestJsonDataParser(unittest.TestCase):
         result = json_data_parser()
 
         self.assertEqual(len(result), 2)
-        self.assertEqual(result[0]["article_name"], "1")
-        self.assertEqual(result[1]["article_name"], "2")
-
-    def test_parse_article_with_raw_date(self):
-        self._create_article(1, "First article")
-
-        result = json_data_parser(1, raw_date=True)
-
-        self.assertEqual(result["timestamp"], "2025-01-15T12:30")
+        self.assertEqual(result[0]["article_id"], "1")
+        self.assertEqual(result[1]["article_id"], "2")
 
     def test_parse_nonexistent_article(self):
         with self.assertRaises(FileNotFoundError):
@@ -73,7 +69,7 @@ class TestJsonDataParser(unittest.TestCase):
         result = json_data_parser()
 
         self.assertEqual(
-            [article["article_name"] for article in result],
+            [article["article_id"] for article in result],
             ["1", "2", "10"],
         )
 

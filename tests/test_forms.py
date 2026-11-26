@@ -94,7 +94,9 @@ class TestForms(unittest.TestCase):
                 {
                     "title": "Old title",
                     "content": "Old content",
-                    "timestamp": "2026-11-09T12:00:00",
+                    "timestamp": "November 9 2026",
+                    "timestamp_raw": "2026-11-09T12:00:00",
+                    "comments": [],
                 }
             ),
             encoding="utf-8",
@@ -118,7 +120,8 @@ class TestForms(unittest.TestCase):
 
         self.assertEqual(article["title"], "Updated title")
         self.assertEqual(article["content"], "Updated content")
-        self.assertEqual(article["timestamp"], "2026-11-10T15:30:00")
+        self.assertEqual(article["timestamp"], "November 10 2026")
+        self.assertEqual(article["timestamp_raw"], "2026-11-10T15:30:00")
 
     def test_edit_nonexistent_article(self):
         response = self.client.post(

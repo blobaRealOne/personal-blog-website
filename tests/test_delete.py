@@ -24,6 +24,7 @@ class TestDelete(unittest.TestCase):
         _ = self.password_patcher.start()
 
         app.config["TESTING"] = True
+        app.config["WTF_CSRF_ENABLED"] = False
         self.client = app.test_client()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
         self.auth_headers = {  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
@@ -37,7 +38,9 @@ class TestDelete(unittest.TestCase):
                 {
                     "title": "Test article",
                     "content": "Test content",
-                    "timestamp": "2026-11-09T12:00:00",
+                    "timestamp": "November 9 2026",
+                    "timestamp_raw": "2026-11-09T12:00:00",
+                    "comments": [],
                 }
             ),
             encoding="utf-8",
