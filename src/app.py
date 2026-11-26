@@ -7,7 +7,7 @@ from functools import wraps
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from threading import Lock
-from typing import TypedDict, overload
+from typing import TypedDict, overload, Any
 
 from flask import Flask, abort, redirect, render_template, request, url_for
 from flask.typing import ResponseReturnValue
@@ -120,7 +120,7 @@ def _validate_timestamp(value: str, field: str, filename: str) -> None:
         raise ValueError(f"Invalid timestamp '{field}' in {filename}") from exc
 
 
-def _reject_duplicate_keys(pairs):
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result = {}
 
     for key, value in pairs:
