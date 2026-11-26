@@ -6,8 +6,9 @@ extensions and configuration, and registers the main route blueprint.
 Article management, JSON parsing, configuration, and logging are
 implemented in separate modules.
 """
+
 from flask import Flask
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect  # pyright: ignore[reportMissingTypeStubs]
 
 from . import config
 from .routes import main

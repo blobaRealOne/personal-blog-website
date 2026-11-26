@@ -6,10 +6,11 @@ records stored as individual JSON files.
 Defines article-related data structures and custom exceptions
 for missing, invalid, or unreadable article records.
 """
+
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, TypedDict, overload
+from typing import TypedDict, TypeGuard, cast, overload
 
 from . import config
 
@@ -78,7 +79,7 @@ class ArticlePreview(TypedDict):
     article_id: str
 
 
-def _format_date(date: str) -> str:
+def format_date(date: str) -> str:
     """Converts an ISO 8601 timestamp into a human-readable date.
 
     Args:
@@ -95,7 +96,7 @@ def _format_date(date: str) -> str:
         return "NaN"
 
 
-def _exceeds_max_length(value: str, limit: int) -> bool:
+def exceeds_max_length(value: str, limit: int) -> bool:
     """Checks whether a string exceeds the specified character limit.
 
     Args:
@@ -166,7 +167,7 @@ def _validate_timestamp(value: str, field: str, filename: str) -> None:
         raise ValueError(f"Invalid timestamp '{field}' in {filename}") from exc
 
 
-def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+def _reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
     """Builds a dictionary while rejecting duplicate JSON object keys.
 
     Used as an object_pairs_hook for json.load() to prevent silently
@@ -181,7 +182,7 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     Raises:
         ValueError: If a duplicate key is encountered.
     """
-    result = {}
+    result: dict[str, object] = {}
 
     for key, value in pairs:
         if key in result:
@@ -193,7 +194,7 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 
 def _validate_fields(
-    data: dict[str, Any],
+    data: dict[str, object],
     required_fields: set[str],
     entity: str,
     filename: str,
@@ -222,6 +223,29 @@ def _validate_fields(
         )
 
 
+def _is_json_object(value: object) -> TypeGuard[dict[str, object]]:
+    """Checks whether a value is a JSON object with string keys.
+
+    Validates that the supplied value is a dictionary and that all
+    its keys are strings, allowing its contents to be safely
+    processed as JSON object values.
+    """
+    if not isinstance(value, dict):
+        return False
+
+    data = cast(dict[object, object], value)
+    return all(isinstance(key, str) for key in data)
+
+
+def _is_json_array(value: object) -> TypeGuard[list[object]]:
+    """Checks whether a value is a JSON array.
+
+    Validates that the supplied value is a list, allowing its
+    elements to be processed as individual JSON values.
+    """
+    return isinstance(value, list)
+
+
 def _read_article(path: Path) -> Article:
     """Reads and validates an article from a JSON file.
 
@@ -245,12 +269,12 @@ def _read_article(path: Path) -> Article:
             are invalid.
     """
     with path.open("r", encoding="utf-8") as f:
-        data = json.load(f, object_pairs_hook=_reject_duplicate_keys)
+        data = cast(object, json.load(f, object_pairs_hook=_reject_duplicate_keys))
+
+    if not _is_json_object(data):
+        raise TypeError(f"Invalid article structure: {path.name}")
 
     filename = path.name
-
-    if not isinstance(data, dict):
-        raise TypeError(f"Invalid article structure: {path.name}")
 
     required_fields = {"title", "content", "timestamp", "timestamp_raw", "comments"}
 
@@ -281,15 +305,15 @@ def _read_article(path: Path) -> Article:
 
     comments = data["comments"]
 
-    if not isinstance(comments, list):
+    if not _is_json_array(comments):
         raise TypeError(f"Invalid comments field: {path.name}")
 
     comment_fields = {"comment_id", "username", "content", "timestamp", "timestamp_raw"}
 
-    comment_ids = set()
+    comment_ids: set[str] = set()
 
     for comment in comments:
-        if not isinstance(comment, dict):
+        if not _is_json_object(comment):
             raise TypeError(f"Invalid comment structure: {path.name}")
 
         _ = _validate_fields(comment, comment_fields, "comment", filename)
@@ -329,7 +353,7 @@ def _read_article(path: Path) -> Article:
         _ = _validate_timestamp(
             comment_timestamp_raw, "comment timestamp_raw", filename
         )
-    return data
+    return cast(Article, cast(object, data))
 
 
 def _load_article(path: Path) -> Article:
@@ -376,7 +400,7 @@ def _get_article_paths() -> list[Path]:
     )
 
 
-def _get_article_ids() -> set[int]:
+def get_article_ids() -> set[int]:
     """Collects identifiers of all existing articles.
 
     Returns:

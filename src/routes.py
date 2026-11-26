@@ -6,33 +6,36 @@ public article browsing, commenting, and administrator operations.
 Also provides administrator authentication and request validation
 for article and comment management.
 """
+
+from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
-from typing import Callable
 
 from flask import (
     Blueprint,
-    # ResponseReturnValue,
     abort,
     redirect,
     render_template,
     request,
     url_for,
 )
+from flask.typing import ResponseReturnValue
 
 from . import config
 from .json_parsers import (
     ArticleNotFoundError,
     ArticleReadError,
+    Comment,
     InvalidArticleError,
-    _exceeds_max_length,
-    _format_date,
-    _get_article_ids,
+    exceeds_max_length,
+    format_date,
+    get_article_ids,
     json_data_parser,
 )
 from .services import save_article
 
 main = Blueprint("main", __name__)
+
 
 def admin_auth[**P](
     view: Callable[P, ResponseReturnValue],
@@ -52,6 +55,7 @@ def admin_auth[**P](
         A wrapped view function that performs authentication before
         executing the original view.
     """
+
     @wraps(view)
     def wrapped(*args: P.args, **kwargs: P.kwargs) -> ResponseReturnValue:
         auth = request.authorization
@@ -73,6 +77,7 @@ def admin_auth[**P](
         return view(*args, **kwargs)
 
     return wrapped
+
 
 @main.get("/")
 def mainpage_get_handler():
@@ -102,7 +107,7 @@ def articlepage_get_handler(article_id: int):
 
     except ArticleNotFoundError:
         abort(404)
-    except InvalidArticleError,  ArticleReadError:
+    except InvalidArticleError, ArticleReadError:
         abort(500)
     return render_template(
         "webpage_article.html", article=article_data, article_id=article_id
@@ -116,7 +121,7 @@ def commentpage_get_handler(article_id: int):
     Args:
         article_id: Identifier of the article receiving the comment.
     """
-    if article_id not in _get_article_ids():
+    if article_id not in get_article_ids():
         abort(404)
     return render_template("webpage_comment.html", article_id=article_id)
 
@@ -141,13 +146,13 @@ def commentpage_post_handler(article_id: int):
         if not comment_username or not comment_content:
             abort(400)
 
-        if _exceeds_max_length(
+        if exceeds_max_length(
             comment_username, config.MAX_USERNAME_LENGTH
-        ) or _exceeds_max_length(comment_content, config.MAX_COMMENT_LENGTH):
+        ) or exceeds_max_length(comment_content, config.MAX_COMMENT_LENGTH):
             abort(400)
 
         comment_date_raw = datetime.now().isoformat()
-        comment_date = _format_date(comment_date_raw)
+        comment_date = format_date(comment_date_raw)
 
         try:
             article = json_data_parser(article_id)
@@ -252,8 +257,8 @@ def newpage_post_handler():
         if not article_title or not article_publishing_date or not article_content:
             abort(400)
 
-        if (_exceeds_max_length(article_title, config.MAX_TITLE_LENGTH)) or (
-            _exceeds_max_length(article_content, config.MAX_CONTENT_LENGTH)
+        if (exceeds_max_length(article_title, config.MAX_TITLE_LENGTH)) or (
+            exceeds_max_length(article_content, config.MAX_CONTENT_LENGTH)
         ):
             abort(400)
 
@@ -335,9 +340,9 @@ def editpage_post_handler(edit_article_id: int):
             if any(not value for value in article_edition_dict.values()):
                 abort(400)
 
-            if _exceeds_max_length(
+            if exceeds_max_length(
                 article_edition_dict["title"], config.MAX_TITLE_LENGTH
-            ) or _exceeds_max_length(
+            ) or exceeds_max_length(
                 article_edition_dict["content"], config.MAX_CONTENT_LENGTH
             ):
                 abort(400)

@@ -6,10 +6,17 @@ records in JSON files.
 Article data is serialized using UTF-8 encoding and written through
 temporary files to reduce the risk of partially written records.
 """
+
 import json
 
 from . import config
-from .json_parsers import Article, Comment, _format_date, _get_article_ids, json_data_parser
+from .json_parsers import (
+    Article,
+    Comment,
+    format_date,
+    get_article_ids,
+    json_data_parser,
+)
 
 
 def save_article(
@@ -45,7 +52,7 @@ def save_article(
     """
     filename = edit_by_id
     if filename is None:
-        articles_ids = _get_article_ids()
+        articles_ids = get_article_ids()
         filename = max(articles_ids, default=0) + 1
 
     new_path = config.ARTICLE_PATH / f"{filename}.json"
@@ -57,7 +64,7 @@ def save_article(
             comments = []
 
     temp_path = new_path.with_suffix(".json.tmp")
-    timestamp = _format_date(timestamp_raw)
+    timestamp = format_date(timestamp_raw)
     payload: Article = {
         "title": title,
         "content": content,
