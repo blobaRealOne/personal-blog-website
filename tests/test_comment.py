@@ -16,29 +16,36 @@ class TestComments(unittest.TestCase):
     @override
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        self.addCleanup(self.temp_dir.cleanup)
+
         self.article_path = Path(self.temp_dir.name)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
-        self.patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
-        _ = self.patcher.start()
+        self.article_patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        _ = self.article_patcher.start()
+        self.addCleanup(self.article_patcher.stop)
 
         self.original_handlers = logger.handlers.copy()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         logger.handlers.clear()
+        self.addCleanup(self._restore_logger_handlers)
 
-        app.config["TESTING"] = True
-        app.config["WTF_CSRF_ENABLED"] = False
+        self.config_patcher = patch.dict(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+            app.config,
+            {
+                "TESTING": True,
+                "WTF_CSRF_ENABLED": False,
+            },
+        )
+        self.config_patcher.start()  # pyright: ignore[reportAny]
+        self.addCleanup(self.config_patcher.stop)  # pyright: ignore[reportAny]
 
         self.client = app.test_client()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
         self.article_file = self.article_path / "1.json"  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         self._create_article()
 
-    @override
-    def tearDown(self):
+    def _restore_logger_handlers(self):
         logger.handlers.clear()
         logger.handlers.extend(self.original_handlers)
-
-        self.patcher.stop()
-        self.temp_dir.cleanup()
 
     def _create_article(self):
         article = {  # pyright: ignore[reportUnknownVariableType]
@@ -181,6 +188,64 @@ class TestComments(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_add_comment_with_empty_content(self):
+        response = self.client.post(
+            "/article/1/comment",
+            data={
+                "comment_username": "TestUser",
+                "comment_content": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_add_comment_with_whitespace_only_fields(self):
+        response = self.client.post(
+            "/article/1/comment",
+            data={
+                "comment_username": "   ",
+                "comment_content": "   ",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_add_comment_with_maximum_allowed_lengths(self):
+        username = "U" * 40
+        content = "C" * 3000
+
+        response = self.client.post(
+            "/article/1/comment",
+            data={
+                "comment_username": username,
+                "comment_content": content,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        article = self._read_article()  # pyright: ignore[reportAny]
+        comment = article["comments"][0]  # pyright: ignore[reportAny]
+
+        self.assertEqual(comment["username"], username)
+        self.assertEqual(comment["content"], content)
+
+    def test_add_comment_to_article_with_invalid_json(self):
+        _ = self.article_file.write_text(
+            '{"title": "Broken article"',
+            encoding="utf-8",
+        )
+
+        response = self.client.post(
+            "/article/1/comment",
+            data={
+                "comment_username": "TestUser",
+                "comment_content": "Test comment",
+            },
+        )
+
+        self.assertEqual(response.status_code, 500)
 
 
 if __name__ == "__main__":

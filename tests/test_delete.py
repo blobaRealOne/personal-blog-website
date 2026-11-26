@@ -13,18 +13,32 @@ class TestDelete(unittest.TestCase):
     @override
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        self.addCleanup(self.temp_dir.cleanup)
+
         self.article_path = Path(self.temp_dir.name)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
-        self.patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
-        _ = self.patcher.start()
+        self.article_patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        _ = self.article_patcher.start()
+        self.addCleanup(self.article_patcher.stop)
 
         self.user_patcher = patch("src.app.ADMIN_USER", "test_admin")  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
-        self.password_patcher = patch("src.app.ADMIN_PASSWORD", "test_password")  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         _ = self.user_patcher.start()
-        _ = self.password_patcher.start()
+        self.addCleanup(self.user_patcher.stop)
 
-        app.config["TESTING"] = True
-        app.config["WTF_CSRF_ENABLED"] = False
+        self.password_patcher = patch("src.app.ADMIN_PASSWORD", "test_password")  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        _ = self.password_patcher.start()
+        self.addCleanup(self.password_patcher.stop)
+
+        self.config_patcher = patch.dict(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+            app.config,
+            {
+                "TESTING": True,
+                "WTF_CSRF_ENABLED": False,
+            },
+        )
+        self.config_patcher.start()  # pyright: ignore[reportAny]
+        self.addCleanup(self.config_patcher.stop)  # pyright: ignore[reportAny]
+
         self.client = app.test_client()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
         self.auth_headers = {  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
@@ -45,13 +59,6 @@ class TestDelete(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-
-    @override
-    def tearDown(self):
-        self.password_patcher.stop()
-        self.user_patcher.stop()
-        self.patcher.stop()
-        self.temp_dir.cleanup()
 
     def test_delete_existing_article(self):
         response = self.client.post(

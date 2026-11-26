@@ -12,12 +12,13 @@ class TestArticleCreator(unittest.TestCase):
     @override
     def setUp(self):
         self.temp_dir = TemporaryDirectory()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        self.addCleanup(self.temp_dir.cleanup)
+
         self.article_path = Path(self.temp_dir.name)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
-        patcher = patch("src.app.ARTICLE_PATH", self.article_path)
-        _ = patcher.start()
-        self.addCleanup(patcher.stop)
-        self.addCleanup(self.temp_dir.cleanup)
+        self.patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+        _ = self.patcher.start()
+        self.addCleanup(self.patcher.stop)
 
     def _read_article(self, article_id: int) -> dict:  # pyright: ignore[reportUnknownParameterType, reportMissingTypeArgument]
         path = self.article_path / f"{article_id}.json"

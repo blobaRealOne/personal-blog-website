@@ -9,7 +9,13 @@ from src.app import app
 class AdminTestCase(unittest.TestCase):
     @override
     def setUp(self):
-        app.config["TESTING"] = True
+        self.config_patcher = patch.dict(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
+            app.config,
+            {"TESTING": True},
+        )
+        self.config_patcher.start()  # pyright: ignore[reportAny]
+        self.addCleanup(self.config_patcher.stop)  # pyright: ignore[reportAny]
+
         self.client = app.test_client()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
 
         self.credentials = patch.multiple(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
