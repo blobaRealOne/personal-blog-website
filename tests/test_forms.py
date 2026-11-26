@@ -1,3 +1,4 @@
+from tests.logging_utils import IsolatedLoggingTestCase
 import base64
 import json
 import tempfile
@@ -9,9 +10,10 @@ from unittest.mock import patch
 from src.app import app
 
 
-class TestForms(unittest.TestCase):
+class TestForms(IsolatedLoggingTestCase):
     @override
     def setUp(self):
+        super().setUp()
         self.temp_dir = tempfile.TemporaryDirectory()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         self.addCleanup(self.temp_dir.cleanup)
 

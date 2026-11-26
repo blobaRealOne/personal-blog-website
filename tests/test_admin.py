@@ -1,3 +1,4 @@
+from tests.logging_utils import IsolatedLoggingTestCase
 import base64
 import unittest
 from typing import override
@@ -6,9 +7,10 @@ from unittest.mock import patch
 from src.app import app
 
 
-class AdminTestCase(unittest.TestCase):
+class AdminTestCase(IsolatedLoggingTestCase):
     @override
     def setUp(self):
+        super().setUp()
         self.config_patcher = patch.dict(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
             app.config,
             {"TESTING": True},

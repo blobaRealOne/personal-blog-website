@@ -1,3 +1,4 @@
+from tests.logging_utils import IsolatedLoggingTestCase
 import json
 import unittest
 from pathlib import Path
@@ -8,9 +9,10 @@ from unittest.mock import patch
 from src.app import save_article
 
 
-class TestArticleCreator(unittest.TestCase):
+class TestArticleCreator(IsolatedLoggingTestCase):
     @override
     def setUp(self):
+        super().setUp()
         self.temp_dir = TemporaryDirectory()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         self.addCleanup(self.temp_dir.cleanup)
 

@@ -1,3 +1,4 @@
+from tests.logging_utils import IsolatedLoggingTestCase
 import json
 import unittest
 from pathlib import Path
@@ -8,9 +9,10 @@ from unittest.mock import patch
 from src.app import json_data_parser
 
 
-class TestJsonDataParser(unittest.TestCase):
+class TestJsonDataParser(IsolatedLoggingTestCase):
     @override
     def setUp(self):
+        super().setUp()
         self.temp_dir = TemporaryDirectory()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         self.addCleanup(self.temp_dir.cleanup)
 
@@ -82,8 +84,16 @@ class TestJsonDataParser(unittest.TestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaises(RuntimeError):
-            _ = json_data_parser(1)
+        with self.assertLogs("personal_blog", level="ERROR") as captured:
+            with self.assertRaises(RuntimeError):
+                _ = json_data_parser(1)
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(
+            captured.records[0].getMessage(),
+            "Invalid JSON in article file: 1.json",
+        )
+        self.assertIsNotNone(captured.records[0].exc_info)
 
     def test_parse_article_with_duplicate_json_keys(self):
         path = self.article_path / "1.json"
@@ -214,12 +224,21 @@ class TestJsonDataParser(unittest.TestCase):
 
         self._create_article(3, "Another valid article")
 
-        result = json_data_parser()
+        with self.assertLogs("personal_blog", level="WARNING") as captured:
+            result = json_data_parser()
 
         self.assertEqual(
             [article["article_id"] for article in result],
             ["1", "3"],
         )
+
+        self.assertEqual(len(captured.records), 1)
+        self.assertEqual(
+            captured.records[0].getMessage(),
+            "Skipping invalid or unreadable article file: 2.json",
+        )
+        self.assertEqual(captured.records[0].levelname, "WARNING")
+        self.assertIsNotNone(captured.records[0].exc_info)
 
 
 if __name__ == "__main__":

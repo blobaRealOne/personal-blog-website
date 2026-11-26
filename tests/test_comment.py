@@ -1,5 +1,5 @@
+from tests.logging_utils import IsolatedLoggingTestCase
 import json
-import logging
 import tempfile
 import unittest
 from datetime import datetime
@@ -9,12 +9,12 @@ from unittest.mock import patch
 
 from src.app import app
 
-logger = logging.getLogger("personal_blog")
 
 
-class TestComments(unittest.TestCase):
+class TestComments(IsolatedLoggingTestCase):
     @override
     def setUp(self):
+        super().setUp()
         self.temp_dir = tempfile.TemporaryDirectory()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         self.addCleanup(self.temp_dir.cleanup)
 
@@ -23,10 +23,6 @@ class TestComments(unittest.TestCase):
         self.article_patcher = patch("src.app.ARTICLE_PATH", self.article_path)  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         _ = self.article_patcher.start()
         self.addCleanup(self.article_patcher.stop)
-
-        self.original_handlers = logger.handlers.copy()  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
-        logger.handlers.clear()
-        self.addCleanup(self._restore_logger_handlers)
 
         self.config_patcher = patch.dict(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
             app.config,
@@ -42,10 +38,6 @@ class TestComments(unittest.TestCase):
 
         self.article_file = self.article_path / "1.json"  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
         self._create_article()
-
-    def _restore_logger_handlers(self):
-        logger.handlers.clear()
-        logger.handlers.extend(self.original_handlers)
 
     def _create_article(self):
         article = {  # pyright: ignore[reportUnknownVariableType]
@@ -237,15 +229,27 @@ class TestComments(unittest.TestCase):
             encoding="utf-8",
         )
 
-        response = self.client.post(
-            "/article/1/comment",
-            data={
-                "comment_username": "TestUser",
-                "comment_content": "Test comment",
-            },
-        )
+        with self.assertLogs(
+            "personal_blog",
+            level="ERROR"
+        ) as captured:
+            response = self.client.post(
+                "/article/1/comment",
+                data={
+                    "comment_username": "TestUser",
+                    "comment_content": "Test comment",
+                },
+            )
 
         self.assertEqual(response.status_code, 500)
+
+        self.assertEqual(
+            captured.records[0].getMessage(),
+            "Invalid JSON in article file: 1.json",
+        )
+
+        self.assertIsNotNone(captured.records[0].exc_info)
+
 
 
 if __name__ == "__main__":

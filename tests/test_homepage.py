@@ -1,3 +1,4 @@
+from tests.logging_utils import IsolatedLoggingTestCase
 import unittest
 from typing import override
 from unittest.mock import patch
@@ -5,9 +6,10 @@ from unittest.mock import patch
 from src.app import app
 
 
-class HomepageTestCase(unittest.TestCase):
+class HomepageTestCase(IsolatedLoggingTestCase):
     @override
     def setUp(self):
+        super().setUp()
         self.config_patcher = patch.dict(  # pyright: ignore[reportUnannotatedClassAttribute, reportUninitializedInstanceVariable]
             app.config,
             {"TESTING": True},
