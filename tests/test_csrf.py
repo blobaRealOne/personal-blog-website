@@ -1,10 +1,11 @@
-from tests.logging_utils import IsolatedLoggingTestCase
 import base64
+import re
 import unittest
 from typing import override
 from unittest.mock import patch
 
 from src.app import app
+from tests.logging_utils import IsolatedLoggingTestCase
 
 
 class TestCSRF(IsolatedLoggingTestCase):
@@ -51,7 +52,6 @@ class TestCSRF(IsolatedLoggingTestCase):
                 "comment_content": "Test comment",
             },
         )
-
         self.assertEqual(response.status_code, 400)
 
     def test_admin_post_without_csrf_token(self):
@@ -74,6 +74,38 @@ class TestCSRF(IsolatedLoggingTestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+    @patch("src.app.save_article")
+    def test_admin_post_with_valid_csrf_token(self, mock_save_article):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+        get_response = self.client.get(
+            "/new",
+            headers=self.auth_headers,
+        )
+
+        self.assertEqual(get_response.status_code, 200)
+
+        html = get_response.get_data(as_text=True)
+        token_match = re.search(
+            r'name="csrf_token"\s+value="([^"]+)"',
+            html,
+        )
+
+        self.assertIsNotNone(token_match)
+        assert token_match is not None
+
+        response = self.client.post(
+            "/new",
+            headers=self.auth_headers,
+            data={
+                "csrf_token": token_match.group(1),
+                "title": "New article",
+                "content": "Article content",
+                "publishing_date": "2026-11-09T12:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        mock_save_article.assert_called_once()  # pyright: ignore[reportUnknownMemberType]
 
 
 if __name__ == "__main__":

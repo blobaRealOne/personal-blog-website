@@ -1,4 +1,3 @@
-from tests.logging_utils import IsolatedLoggingTestCase
 import json
 import unittest
 from pathlib import Path
@@ -7,6 +6,7 @@ from typing import override
 from unittest.mock import patch
 
 from src.app import save_article
+from tests.logging_utils import IsolatedLoggingTestCase
 
 
 class TestArticleCreator(IsolatedLoggingTestCase):

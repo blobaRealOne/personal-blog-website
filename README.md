@@ -11,8 +11,8 @@ Project idea based from [roadmap.sh](https://roadmap.sh/projects/personal-blog).
 
 - View published articles
 - CRUD operations through the admin panel
-- HTTP Basic Authentication for admin access
-- CSRF protection for POST request
+- HTTP Basic Authentication for the admin panel
+- CSRF protection for POST requests
 - Comment feature
 - Test coverage
 

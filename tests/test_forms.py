@@ -1,4 +1,3 @@
-from tests.logging_utils import IsolatedLoggingTestCase
 import base64
 import json
 import tempfile
@@ -8,6 +7,7 @@ from typing import override
 from unittest.mock import patch
 
 from src.app import app
+from tests.logging_utils import IsolatedLoggingTestCase
 
 
 class TestForms(IsolatedLoggingTestCase):
@@ -225,6 +225,55 @@ class TestForms(IsolatedLoggingTestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+    def test_delete_comment_preserves_other_comments(self):
+        article_file = self.article_path / "1.json"
+
+        comments = [
+            {
+                "comment_id": "1",
+                "username": "FirstUser",
+                "content": "First comment",
+                "timestamp": "November 9 2026",
+                "timestamp_raw": "2026-11-09T13:00:00",
+            },
+            {
+                "comment_id": "2",
+                "username": "SecondUser",
+                "content": "Second comment",
+                "timestamp": "November 9 2026",
+                "timestamp_raw": "2026-11-09T14:00:00",
+            },
+        ]
+
+        _ = article_file.write_text(
+            json.dumps(
+                {
+                    "title": "Test article",
+                    "content": "Test content",
+                    "timestamp": "November 9 2026",
+                    "timestamp_raw": "2026-11-09T12:00:00",
+                    "comments": comments,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        response = self.client.post(
+            "/edit/1?deletion_comment_id=1",
+            headers=self.auth_headers,
+        )
+
+        self.assertEqual(response.status_code, 302)
+
+        article = json.loads(  # pyright: ignore[reportAny]
+            article_file.read_text(encoding="utf-8")
+        )
+
+        self.assertEqual(len(article["comments"]), 1)  # pyright: ignore[reportAny]
+        self.assertEqual(article["comments"][0]["comment_id"], "2")
+        self.assertEqual(article["comments"][0]["username"], "SecondUser")
+        self.assertEqual(article["comments"][0]["content"], "Second comment")
 
 
 if __name__ == "__main__":

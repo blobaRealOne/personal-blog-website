@@ -14,6 +14,18 @@ from flask.typing import ResponseReturnValue
 from flask_wtf.csrf import CSRFProtect
 
 
+class ArticleNotFoundError(Exception):
+    pass
+
+
+class InvalidArticleError(Exception):
+    pass
+
+
+class ArticleReadError(Exception):
+    pass
+
+
 class Comment(TypedDict):
     comment_id: str
     username: str
@@ -131,6 +143,21 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
     return result
 
+def _validate_fields(
+    data: dict[str, Any],
+    required_fields: set[str],
+    entity: str,
+    filename: str,
+) -> None:
+    missing = required_fields - data.keys()
+    unexpected = data.keys() - required_fields
+
+    if missing or unexpected:
+        raise ValueError(
+            f"Invalid {entity} fields in {filename}: "
+            + f"missing={missing}, unexpected={unexpected}"
+        )
+
 
 def _read_article(path: Path) -> Article:
     with path.open("r", encoding="utf-8") as f:
@@ -143,11 +170,7 @@ def _read_article(path: Path) -> Article:
 
     required_fields = {"title", "content", "timestamp", "timestamp_raw", "comments"}
 
-    if not required_fields.issubset(data):
-        raise ValueError(f"Missing article fields: {path.name}")
-
-    if data.keys() != required_fields:
-        raise ValueError(f"Unexpected or missing article fields: {filename}")
+    _ = _validate_fields(data, required_fields, "article", filename)
 
     _ = _validate_string(
         data["title"],
@@ -172,8 +195,6 @@ def _read_article(path: Path) -> Article:
     )
     _ = _validate_timestamp(timestamp_raw, "timestamp_raw", filename)
 
-    # string_fields = {"title", "content", "timestamp", "timestamp_raw"}
-
     comments = data["comments"]
 
     if not isinstance(comments, list):
@@ -187,11 +208,7 @@ def _read_article(path: Path) -> Article:
         if not isinstance(comment, dict):
             raise TypeError(f"Invalid comment structure: {path.name}")
 
-        if not comment_fields.issubset(comment):
-            raise ValueError(f"Missing comment fields: {path.name}")
-
-        if comment.keys() != comment_fields:
-            raise ValueError(f"Unexpected or missing comment fields: {filename}")
+        _ = _validate_fields(comment, comment_fields, "comment", filename)
 
         comment_id = _validate_string(
             comment["comment_id"],
@@ -230,6 +247,19 @@ def _read_article(path: Path) -> Article:
         )
     return data
 
+def _load_article(path: Path) -> Article:
+    try:
+        return _read_article(path)
+
+    except FileNotFoundError as exc:
+        raise ArticleNotFoundError(path.stem) from exc
+
+    except (json.JSONDecodeError, ValueError, TypeError, KeyError) as exc:
+        raise InvalidArticleError(path.stem) from exc
+
+    except OSError as exc:
+        raise ArticleReadError(path.stem) from exc
+
 
 def _get_article_paths() -> list[Path]:
     return sorted(
@@ -256,40 +286,36 @@ def json_data_parser(
     if file_id is not None:
         article_path = ARTICLE_PATH / f"{file_id}.json"
 
-        if not article_path.exists():
-            raise FileNotFoundError
-
         try:
-            json_data = _read_article(article_path)
-        except json.JSONDecodeError as exc:
+            return _load_article(article_path)
+
+        except ArticleNotFoundError:
+            raise
+
+        except InvalidArticleError:
             logger.exception(
                 "Invalid JSON in article file: %s",
                 article_path.name,
             )
-            raise RuntimeError("Failed to parse article JSON") from exc
+            raise
 
-        except (ValueError, TypeError, KeyError) as exc:
-            logger.exception(
-                "Invalid article structure in file: %s",
-                article_path.name,
-            )
-            raise FileNotFoundError(f"Invalid article: {file_id}") from exc
-
-        except OSError as exc:
+        except ArticleReadError:
             logger.exception(
                 "Failed to read article file: %s",
                 article_path.name,
             )
-            raise RuntimeError("Failed to read article") from exc
-
-        return json_data
+            raise
 
     result: list[ArticlePreview] = []
 
     for article in _get_article_paths():
         try:
-            data = _read_article(article)
-        except json.JSONDecodeError, ValueError, OSError, TypeError, KeyError:
+            data = _load_article(article)
+        except (
+            ArticleNotFoundError,
+            InvalidArticleError,
+            ArticleReadError,
+        ):
             logger.warning(
                 "Skipping invalid or unreadable article file: %s",
                 article.name,
@@ -391,6 +417,7 @@ def configure_file_logging() -> None:
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = SECRET_KEY
+    app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
     _ = configure_file_logging()
     _ = CSRFProtect(app)
     ARTICLE_PATH.mkdir(parents=True, exist_ok=True)
@@ -415,9 +442,10 @@ def homepage_get_handler() -> str:
 def articlepage_get_handler(article_id: int):
     try:
         article_data = json_data_parser(article_id)
-    except FileNotFoundError:
+
+    except ArticleNotFoundError:
         abort(404)
-    except RuntimeError:
+    except InvalidArticleError,  ArticleReadError:
         abort(500)
     return render_template(
         "webpage_article.html", article=article_data, article_id=article_id
@@ -450,9 +478,9 @@ def commentpage_post_handler(article_id: int):
 
         try:
             article = json_data_parser(article_id)
-        except FileNotFoundError:
+        except ArticleNotFoundError:
             abort(404)
-        except RuntimeError:
+        except InvalidArticleError, ArticleReadError:
             abort(500)
 
         comments = article.get("comments", [])
@@ -552,9 +580,9 @@ def newpage_post_handler():
 def editpage_get_handler(edit_article_id: int):
     try:
         article_data = json_data_parser(edit_article_id)
-    except FileNotFoundError:
+    except ArticleNotFoundError:
         abort(404)
-    except RuntimeError:
+    except InvalidArticleError, ArticleReadError:
         abort(500)
 
     return render_template(
@@ -568,9 +596,9 @@ def editpage_post_handler(edit_article_id: int):
     with ARTICLE_LOCK:
         try:
             article_dict = json_data_parser(edit_article_id)
-        except FileNotFoundError:
+        except ArticleNotFoundError:
             abort(404)
-        except RuntimeError:
+        except InvalidArticleError, ArticleReadError:
             abort(500)
 
         comment_to_delete = request.args.get("deletion_comment_id")

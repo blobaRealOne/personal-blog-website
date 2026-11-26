@@ -1,4 +1,3 @@
-from tests.logging_utils import IsolatedLoggingTestCase
 import json
 import tempfile
 import unittest
@@ -8,7 +7,7 @@ from typing import override
 from unittest.mock import patch
 
 from src.app import app
-
+from tests.logging_utils import IsolatedLoggingTestCase
 
 
 class TestComments(IsolatedLoggingTestCase):
@@ -229,10 +228,7 @@ class TestComments(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertLogs(
-            "personal_blog",
-            level="ERROR"
-        ) as captured:
+        with self.assertLogs("personal_blog", level="ERROR") as captured:
             response = self.client.post(
                 "/article/1/comment",
                 data={
@@ -249,7 +245,6 @@ class TestComments(IsolatedLoggingTestCase):
         )
 
         self.assertIsNotNone(captured.records[0].exc_info)
-
 
 
 if __name__ == "__main__":

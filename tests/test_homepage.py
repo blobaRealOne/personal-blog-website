@@ -1,9 +1,9 @@
-from tests.logging_utils import IsolatedLoggingTestCase
 import unittest
 from typing import override
 from unittest.mock import patch
 
 from src.app import app
+from tests.logging_utils import IsolatedLoggingTestCase
 
 
 class HomepageTestCase(IsolatedLoggingTestCase):

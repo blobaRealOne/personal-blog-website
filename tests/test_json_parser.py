@@ -1,4 +1,3 @@
-from tests.logging_utils import IsolatedLoggingTestCase
 import json
 import unittest
 from pathlib import Path
@@ -6,7 +5,12 @@ from tempfile import TemporaryDirectory
 from typing import override
 from unittest.mock import patch
 
-from src.app import json_data_parser
+from src.app import (
+    ArticleNotFoundError,
+    InvalidArticleError,
+    json_data_parser,
+)
+from tests.logging_utils import IsolatedLoggingTestCase
 
 
 class TestJsonDataParser(IsolatedLoggingTestCase):
@@ -57,7 +61,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
         self.assertEqual(result[1]["article_id"], "2")
 
     def test_parse_nonexistent_article(self):
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(ArticleNotFoundError):
             _ = json_data_parser(999)
 
     def test_parse_empty_directory(self):
@@ -84,9 +88,11 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertLogs("personal_blog", level="ERROR") as captured:
-            with self.assertRaises(RuntimeError):
-                _ = json_data_parser(1)
+        with (
+            self.assertLogs("personal_blog", level="ERROR") as captured,
+            self.assertRaises(InvalidArticleError),
+        ):
+            _ = json_data_parser(1)
 
         self.assertEqual(len(captured.records), 1)
         self.assertEqual(
@@ -111,7 +117,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(InvalidArticleError):
             _ = json_data_parser(1)
 
     def test_parse_article_with_missing_field(self):
@@ -126,7 +132,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(InvalidArticleError):
             _ = json_data_parser(1)
 
     def test_parse_article_with_unexpected_field(self):
@@ -141,7 +147,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(InvalidArticleError):
             _ = json_data_parser(1)
 
     def test_parse_article_with_invalid_field_type(self):
@@ -156,7 +162,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(InvalidArticleError):
             _ = json_data_parser(1)
 
     def test_parse_article_with_invalid_timestamp(self):
@@ -171,7 +177,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(InvalidArticleError):
             _ = json_data_parser(1)
 
     def test_parse_article_with_invalid_comments_type(self):
@@ -186,7 +192,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(InvalidArticleError):
             _ = json_data_parser(1)
 
     def test_parse_article_with_duplicate_comment_ids(self):
@@ -210,7 +216,7 @@ class TestJsonDataParser(IsolatedLoggingTestCase):
             encoding="utf-8",
         )
 
-        with self.assertRaises(FileNotFoundError):
+        with self.assertRaises(InvalidArticleError):
             _ = json_data_parser(1)
 
     def test_parse_all_articles_skips_invalid_json(self):
